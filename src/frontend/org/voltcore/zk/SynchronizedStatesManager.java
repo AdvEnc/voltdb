@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -85,7 +86,8 @@ public class SynchronizedStatesManager {
     private final AtomicBoolean m_done = new AtomicBoolean(false);
     private final static String m_memberNode = "MEMBERS";
     private Set<String> m_groupMembers = new HashSet<String>();
-    private final StateMachineInstance m_registeredStateMachines [];
+    private final List<StateMachineInstance> m_registeredStateMachines;
+    private int m_toRegisterStateMachineInstances;
     private int m_registeredStateMachineInstances = 0;
     private static final ListeningExecutorService m_shared_es = CoreUtils.getListeningExecutorService("SSM Daemon", 1);
     // We assume that we are far enough along that the HostMessenger is up and running. Otherwise add to constructor.
@@ -196,6 +198,8 @@ public class SynchronizedStatesManager {
         private int m_currentParticipants = 0;
         private Set<String> m_memberResults = null;
         private int m_lastProposalVersion = 0;
+
+        protected boolean m_deregistered = false;
 
         private final Lock m_mutex = new ReentrantLock();
         private int m_mutexLockedCnt = 0;
@@ -383,7 +387,14 @@ public class SynchronizedStatesManager {
                 cancelDistributedLock();
                 checkForBarrierParticipantsChange();
                 // Notify the derived object that we have a stable state
-                setInitialState(readOnlyResult);
+                if (!m_deregistered) {
+                    try {
+                        setInitialState(readOnlyResult);
+                    } catch (Exception e) {
+                        m_log.error("Error in StateMachineInstance callbacks", e);
+                        deregisterStateMachine(this);
+                    }
+                }
             }
             else {
                 // To get a stable result set, we need to get the lock for this state machine. If someone else has the
@@ -430,6 +441,25 @@ public class SynchronizedStatesManager {
             }
             unlockLocalState();
         }
+
+        private void disableSelf() {
+            m_log.debug("Disabling one StateMachineInstance");
+            try {
+                m_zk.delete(m_myPartiticpantsPath, -1);
+                m_zk.delete(m_barrierParticipantsPath, -1);
+                m_zk.delete(m_myResultPath, -1);
+                m_zk.delete(m_barrierResultsPath, -1);
+                if (m_ourDistributedLockName != null) {
+                    m_zk.delete(m_ourDistributedLockName, -1);
+                }
+                m_zk.delete(m_lockPath, -1);
+                m_zk.delete(m_statePath, -1);
+            } catch (KeeperException|InterruptedException e) {
+            }
+            notifyOfStateMachineDisabled();
+        }
+
+        protected void notifyOfStateMachineDisabled() {}
 
         private int getProposalVersion() {
             int proposalVersion = -1;
@@ -535,7 +565,12 @@ public class SynchronizedStatesManager {
                                 }
                                 unlockLocalState();
                                 if (type == REQUEST_TYPE.STATE_CHANGE_REQUEST) {
-                                    stateChangeProposed(proposedState);
+                                    try {
+                                        stateChangeProposed(proposedState);
+                                    } catch (Exception e) {
+                                        m_log.error("Error in StateMachineInstance callbacks", e);
+                                        deregisterStateMachine(this);
+                                    }
                                 }
                                 else {
                                     taskRequested(proposedState);
@@ -776,11 +811,18 @@ public class SynchronizedStatesManager {
                     m_log.info(m_stateMachineId + ": Initialized (concensus) with State " +
                             stateToString(m_synchronizedState.asReadOnlyBuffer()));
                     unlockLocalState();
-                    setInitialState(readOnlyResult);
+                    try {
+                        setInitialState(readOnlyResult);
+                    } catch (Exception e) {
+                        m_log.error("Error in StateMachineInstance callbacks", e);
+                        deregisterStateMachine(this);
+                    }
 
                     // If we are ready to provide an initial state to the derived state machine, add us to
                     // participants watcher so we can see the next request
-                    monitorParticipantChanges();
+                    if (!m_deregistered) {
+                        monitorParticipantChanges();
+                    }
                 }
                 else {
                     unlockLocalState();
@@ -830,8 +872,15 @@ public class SynchronizedStatesManager {
                             stateToString(attemptedChange.asReadOnlyBuffer()));
                     unlockLocalState();
                     // Notify the derived state machine engine of the current state
-                    proposedStateResolved(initiator, attemptedChange, success);
-                    monitorParticipantChanges();
+                    try {
+                        proposedStateResolved(initiator, attemptedChange, success);
+                    } catch (Exception e) {
+                        m_log.error("Error in StateMachineInstance callbacks" + e.getClass().getName());
+                        deregisterStateMachine(this);
+                    }
+                    if (!m_deregistered) {
+                        monitorParticipantChanges();
+                    }
                 }
                 else {
                     // Process the results of a TASK request
@@ -980,10 +1029,20 @@ public class SynchronizedStatesManager {
             }
             if (readOnlyResult != null) {
                 // Notify the derived object that we have a stable state
-                setInitialState(readOnlyResult);
+                try {
+                    setInitialState(readOnlyResult);
+                } catch (Exception e) {
+                    m_log.error("Error in StateMachineInstance callbacks", e);
+                    deregisterStateMachine(this);
+                }
             }
             if (staleTask != null) {
-                staleTaskRequestNotification(staleTask);
+                try {
+                    staleTaskRequestNotification(staleTask);
+                } catch (Exception e) {
+                    m_log.error("Error in StateMachineInstance callbacks", e);
+                    deregisterStateMachine(this);
+                }
             }
         }
 
@@ -1145,7 +1204,12 @@ public class SynchronizedStatesManager {
                 unlockLocalState();
             }
             if (notInitializing) {
-                membershipChanged(addedMembers, removedMembers);
+                try {
+                    membershipChanged(addedMembers, removedMembers);
+                } catch (Exception e) {
+                    m_log.error("Error in StateMachineInstance callbacks", e);
+                    deregisterStateMachine(this);
+                }
             }
             assert(!debugIsLocalStateLocked());
         }
@@ -1188,7 +1252,12 @@ public class SynchronizedStatesManager {
                 m_lockWaitingOn = null;
                 unlockLocalState();
                 // Notify the derived class that the lock is available
-                lockRequestCompleted();
+                try {
+                    lockRequestCompleted();
+                } catch (Exception e) {
+                    m_log.error("Error in StateMachineInstance callbacks", e);
+                    deregisterStateMachine(this);
+                }
             }
         }
 
@@ -1523,7 +1592,8 @@ public class SynchronizedStatesManager {
             throws KeeperException, InterruptedException {
         m_zk = zk;
         // We will not add ourselves as members in ZooKeeper until all StateMachineInstances have registered
-        m_registeredStateMachines = new StateMachineInstance[registeredInstances];
+        m_registeredStateMachines = new LinkedList<>();
+        m_toRegisterStateMachineInstances = registeredInstances;
         m_ssmRootNode = ssmNodeName;
         m_stateMachineRoot = ZKUtil.joinZKPath(rootPath, ssmNodeName);
         ByteBuffer numberOfInstances = ByteBuffer.allocate(4);
@@ -1627,6 +1697,9 @@ public class SynchronizedStatesManager {
                 // Then initialize each instance
                 for (StateMachineInstance instance : m_registeredStateMachines) {
                     instance.initializeStateMachine(m_groupMembers);
+                    if (instance.m_deregistered) {
+                        break;
+                    }
                 }
             } catch (KeeperException.SessionExpiredException e) {
                 // lost the full connection. some test cases do this...
@@ -1649,11 +1722,11 @@ public class SynchronizedStatesManager {
     };
 
     private synchronized void registerStateMachine(StateMachineInstance machine) throws InterruptedException {
-        assert(m_registeredStateMachineInstances < m_registeredStateMachines.length);
+        assert(m_registeredStateMachineInstances < m_toRegisterStateMachineInstances);
 
-        m_registeredStateMachines[m_registeredStateMachineInstances] = machine;
-        m_registeredStateMachineInstances++;
-        if (m_registeredStateMachineInstances == m_registeredStateMachines.length) {
+        m_registeredStateMachines.add(machine);
+        ++m_registeredStateMachineInstances;
+        if (m_registeredStateMachineInstances == m_toRegisterStateMachineInstances) {
             if (machine.m_log.isDebugEnabled()) {
                 // lets make sure all the state machines are using unique paths
                 Set<String> instanceNames = new HashSet<String>();
@@ -1676,6 +1749,21 @@ public class SynchronizedStatesManager {
         }
     }
 
+    private synchronized void deregisterStateMachine(StateMachineInstance machine) {
+        assert(m_registeredStateMachineInstances > 0 && m_registeredStateMachineInstances == m_toRegisterStateMachineInstances);
+
+        machine.m_deregistered = true;
+        machine.disableSelf();
+
+        m_registeredStateMachines.remove(machine);
+        --m_registeredStateMachineInstances;
+        --m_toRegisterStateMachineInstances;
+
+        if (m_toRegisterStateMachineInstances == 0) {
+            disableInstances.run();
+        }
+    }
+
     /*
      * Track state machine membership. If it changes, notify all state machine instances
      */
@@ -1684,7 +1772,7 @@ public class SynchronizedStatesManager {
 
         Set<String> removedMembers;
         Set<String> addedMembers;
-        if (m_registeredStateMachineInstances == m_registeredStateMachines.length && !m_groupMembers.equals(children)) {
+        if (m_registeredStateMachineInstances == m_toRegisterStateMachineInstances && !m_groupMembers.equals(children)) {
             removedMembers = Sets.difference(m_groupMembers, children);
             addedMembers = Sets.difference(children, m_groupMembers);
             m_groupMembers = children;
