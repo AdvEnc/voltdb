@@ -202,7 +202,10 @@ public class TestStateMachine extends ZKTestBase {
         String taskResultString = defaultTaskResult;
         volatile Map<String, ByteBuffer> correlatedResults;
         volatile List<ByteBuffer> uncorrelatedResults;
+
         boolean notifiedOfReset = false;
+        String brokenCallbackName = "DEFAULT";
+        volatile boolean staleTaskRequestProcessed = false;
 
         public boolean toBoolean(ByteBuffer buff) {
             byte[] b = new byte[buff.remaining()];
@@ -374,23 +377,88 @@ public class TestStateMachine extends ZKTestBase {
             task.get(b, 0, b.length);
             return new String(b);
         }
+
+        @Override
+        protected void notifyOfStateMachineReset() {
+            staleTaskRequestProcessed = false;
+            makeProposal = false;
+            startTask = false;
+            proposalsOrTasksCompleted = 0;
+            ourProposalOrTaskFinished = false;
+            acceptProposalOrTask = true;
+            justHoldTheLock = false;
+            ignoreProposal = false;
+            correlatedTask = true;
+
+            notifiedOfReset = true;
+        }
     }
 
     class BrokenBooleanStateMachine extends BooleanStateMachine {
+
         public BrokenBooleanStateMachine(SynchronizedStatesManager ssm, String instanceName) {
             super(ssm, instanceName);
         }
 
         @Override
-        protected void proposedStateResolved(boolean ourProposal, ByteBuffer proposedState, boolean success) {
-            // Inject NPE
-            Long sth = null;
-            sth.toString();
+        protected void lockRequestCompleted() {
+            if (brokenCallbackName.equals("lockRequestCompleted")) {
+                // Inject NPE
+                Long sth = null;
+                sth.toString();
+            }
+            else {
+                super.lockRequestCompleted();
+            }
         }
 
         @Override
-        protected void notifyOfStateMachineReset() {
-            notifiedOfReset = true;
+        protected void membershipChanged(Set<String> addedHosts, Set<String> removedHosts) {
+            if (brokenCallbackName.equals("membershipChanged")) {
+                // Inject NPE
+                Long sth = null;
+                sth.toString();
+            }
+            else {
+                super.membershipChanged(addedHosts, removedHosts);
+            }
+        }
+
+        @Override
+        protected void stateChangeProposed(ByteBuffer proposedState) {
+            if (brokenCallbackName.equals("stateChangeProposed")) {
+                // Inject NPE
+                Long sth = null;
+                sth.toString();
+            }
+            else {
+                super.stateChangeProposed(proposedState);
+            }
+        }
+
+        @Override
+        protected void staleTaskRequestNotification(ByteBuffer proposedTask) {
+            if (brokenCallbackName.equals("staleTaskRequestNotification")) {
+                // Inject NPE
+                Long sth = null;
+                sth.toString();
+            }
+            else {
+                super.staleTaskRequestNotification(proposedTask);
+                staleTaskRequestProcessed = true;
+            }
+        }
+
+        @Override
+        protected void proposedStateResolved(boolean ourProposal, ByteBuffer proposedState, boolean success) {
+            if (brokenCallbackName.equals("proposedStateResolved")) {
+                // Inject NPE
+                Long sth = null;
+                sth.toString();
+            }
+            else {
+                super.proposedStateResolved(ourProposal, proposedState, success);
+            }
         }
     }
 
@@ -691,7 +759,6 @@ public class TestStateMachine extends ZKTestBase {
         return true;
     }
 
-/*
     @Test
     public void testSingleNodeStateChange() {
         log.info("Starting testSuccessfulStateChange");
@@ -1376,35 +1443,39 @@ public class TestStateMachine extends ZKTestBase {
             fail("Exception occurred during test.");
         }
     }
-*/
+
     @Test
-    public void testResetIfExceptionInCallback() {
-        log.info("Starting testResetIfExceptionInCallback");
+    public void testResetIfExceptionInLockRequestCompleted() {
+        log.info("Starting testResetIfExceptionInLockRequestCompleted");
 
         for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
             removeStateMachinesFor(ii);
         }
-        for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
-            addBrokenBooleanStateMachinesFor(ii);
+        addBrokenBooleanStateMachinesFor(0);
+        for (int ii = 1; ii < NUM_AGREEMENT_SITES; ii++) {
+            addStateMachinesFor(ii);
         }
 
         try {
-            m_booleanStateMachinesForGroup1[1] = null;
-            m_booleanStateMachinesForGroup1[2] = null;
-            m_booleanStateMachinesForGroup1[3] = null;
-            registerGroup1BoolFor(0);
+            m_booleanStateMachinesForGroup1[0].brokenCallbackName = "lockRequestCompleted";
+            for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+                registerGroup1BoolFor(ii);
+            }
 
             while (!boolsInitialized(m_booleanStateMachinesForGroup1)) {
                 Thread.sleep(500);
             }
             BooleanStateMachine i0 = m_booleanStateMachinesForGroup1[0];
+            BooleanStateMachine i1 = m_booleanStateMachinesForGroup1[1];
             assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup1));
 
             assertEquals(0, i0.getResetCounter());
 
+            // let i1 grab the lock first, so that i0 will be notified with lock via lockRequestCompleted()
+            i1.startTask();
             i0.switchState();
             int ii = 0;
-            for (; ii < 10; ii++) {
+            for (; ii < 5; ii++) {
                 if (i0.ourProposalOrTaskFinished &&
                         boolProposalOrTaskFinished(m_booleanStateMachinesForGroup1, 1)) {
                     break;
@@ -1412,11 +1483,208 @@ public class TestStateMachine extends ZKTestBase {
                 Thread.sleep(500);
             }
 
-            // switch should fail and state should have been reset
-            assertEquals(10, ii);
+            // i0 should have never incremented the completion count because it will never get the lock (broken callback)
+            assertEquals(5, ii);
+
+            // i0's switch should fail and state should have been reinitialized to false with consensus
             assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup1));
+            assertFalse(i0.state);
             assertTrue(i0.notifiedOfReset);
+            assertEquals(1, i0.getResetCounter());
+        }
+        catch (InterruptedException e) {
+            fail("Exception occurred during test.");
+        }
+    }
+
+    @Test
+    public void testResetIfExceptionInMembershipChanged() {
+        log.info("Starting testResetIfExceptionInMembershipChanged");
+
+        for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+            removeStateMachinesFor(ii);
+        }
+        addBrokenBooleanStateMachinesFor(0);
+        for (int ii = 1; ii < NUM_AGREEMENT_SITES; ii++) {
+            addStateMachinesFor(ii);
+        }
+
+        try {
+            BooleanStateMachine i0 = m_booleanStateMachinesForGroup1[0];
+            assertEquals(0, i0.getResetCounter());
+
+            i0.brokenCallbackName = "membershipChanged";
+            for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+                // introduce some interval between member nodes being created in ZK
+                // so there will be several membership change notifications, hence several resets for i0
+                Thread.sleep(500);
+                registerGroup1BoolFor(ii);
+            }
+
+            while (!boolsInitialized(m_booleanStateMachinesForGroup1)) {
+                Thread.sleep(500);
+            }
+
+            // i0 will be reset whenever it is notified of membership changes (broken callback).
+            // After all other members have been initialized, i0 can be initialized to false with consensus
+            // properly (as there is no further membership change)
+            assertFalse(i0.state);
+            assertTrue(i0.notifiedOfReset);
+            assertTrue(i0.getResetCounter() > 0);
+        }
+        catch (InterruptedException e) {
+            fail("Exception occurred during test.");
+        }
+    }
+
+    @Test
+    public void testResetIfExceptionInStateChangeProposed() {
+        log.info("Starting testResetIfExceptionInStateChangeProposed");
+
+        for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+            removeStateMachinesFor(ii);
+        }
+        addBrokenBooleanStateMachinesFor(0);
+        for (int ii = 1; ii < NUM_AGREEMENT_SITES; ii++) {
+            addStateMachinesFor(ii);
+        }
+
+        try {
+            m_booleanStateMachinesForGroup1[0].brokenCallbackName = "stateChangeProposed";
+            for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+                registerGroup1BoolFor(ii);
+            }
+
+            while (!boolsInitialized(m_booleanStateMachinesForGroup1)) {
+                Thread.sleep(500);
+            }
+            BooleanStateMachine i0 = m_booleanStateMachinesForGroup1[0];
+            BooleanStateMachine i1 = m_booleanStateMachinesForGroup1[1];
+            assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup1));
+
+            assertEquals(0, i0.getResetCounter());
+
+            i1.switchState();
+            int ii = 0;
+            for (; ii < 5; ii++) {
+                if (i1.ourProposalOrTaskFinished &&
+                        boolProposalOrTaskFinished(m_booleanStateMachinesForGroup1, 1)) {
+                    break;
+                }
+                Thread.sleep(500);
+            }
+
+            // i0 should have never stepped into proposedStateResolved because of the reset, so the actual
+            // completion count is 0, hence the timeout
+            assertEquals(5, ii);
+
+            // i1's switch should fail because i0 disagreed with the proposal by default in case of broken stateChangeProposed()
+            // state should have been reset and reinitialized to false with consensus
+            assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup1));
+            assertFalse(i0.state);
+            assertTrue(i0.notifiedOfReset);
+            assertEquals(1, i0.getResetCounter());
+        }
+        catch (InterruptedException e) {
+            fail("Exception occurred during test.");
+        }
+    }
+
+    @Test
+    public void testResetIfExceptionInStaleTaskRequestNotification() {
+        log.info("Starting testResetIfExceptionInStaleTaskRequestNotification");
+
+        for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+            removeStateMachinesFor(ii);
+        }
+        addBrokenBooleanStateMachinesFor(0);
+        addStateMachinesFor(1);
+
+        try {
+            BooleanStateMachine i0 = m_booleanStateMachinesForGroup1[0];
+            BooleanStateMachine i1 = m_booleanStateMachinesForGroup1[1];
+            i0.brokenCallbackName = "staleTaskRequestNotification";
+
+            assertEquals(0, i0.getResetCounter());
+
+            registerGroup1BoolFor(1);
+            i1.startTask(); // the task will be seen as a stale task when i0 is initializing
+            registerGroup1BoolFor(0);
+
+            while (!boolsInitialized(m_booleanStateMachinesForGroup1)) {
+                Thread.sleep(500);
+            }
+
+            assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup1));
+
+            int ii = 0;
+            for (; ii < 5; ii++) {
+                // stale task request will never be processed because of the broken callback
+                if (i0.staleTaskRequestProcessed) {
+                    break;
+                }
+                Thread.sleep(500);
+            }
+
+            // i0 will always fail to initialize because of the stale task left by i1, hence the timeout
+            assertEquals(5, ii);
+
+            // state will remain false and the default reset limit 5 will be reached
+            assertFalse(i0.state);
+            assertTrue(i0.notifiedOfReset);
+            assertEquals(6, i0.getResetCounter());
+        }
+        catch (InterruptedException e) {
+            fail("Exception occurred during test.");
+        }
+    }
+
+    @Test
+    public void testResetIfExceptionInProposedStateResolved() {
+        log.info("Starting testResetIfExceptionInProposedStateResolved");
+
+        for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+            removeStateMachinesFor(ii);
+        }
+        addBrokenBooleanStateMachinesFor(0);
+        for (int ii = 1; ii < NUM_AGREEMENT_SITES; ii++) {
+            addStateMachinesFor(ii);
+        }
+
+        try {
+            m_booleanStateMachinesForGroup1[0].brokenCallbackName = "proposedStateResolved";
+            for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+                registerGroup1BoolFor(ii);
+            }
+
+            while (!boolsInitialized(m_booleanStateMachinesForGroup1)) {
+                Thread.sleep(500);
+            }
+            BooleanStateMachine i0 = m_booleanStateMachinesForGroup1[0];
+            BooleanStateMachine i1 = m_booleanStateMachinesForGroup1[1];
+            assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup1));
+
+            assertEquals(0, i0.getResetCounter());
+
+            // any instance can propose the change, here we use i1
+            i1.switchState();
+            int ii = 0;
+            for (; ii < 5; ii++) {
+                if (i1.ourProposalOrTaskFinished &&
+                        boolProposalOrTaskFinished(m_booleanStateMachinesForGroup1, 1)) {
+                    break;
+                }
+                Thread.sleep(500);
+            }
+
+            // i0 should have never incremented the completion count because proposedStateResolved()
+            // is broken, hence the timeout
+            assertEquals(5, ii);
+
+            // switch should succeed and state should have been reinitialized to true with consensus
+            assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup1));
             assertTrue(i0.state);
+            assertTrue(i0.notifiedOfReset);
             assertEquals(1, i0.getResetCounter());
         }
         catch (InterruptedException e) {

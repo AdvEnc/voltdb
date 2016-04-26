@@ -594,6 +594,7 @@ public class SynchronizedStatesManager {
                                     try {
                                         stateChangeProposed(proposedState);
                                     } catch (Exception e) {
+                                        requestedStateChangeAcceptable(false);
                                         if (m_log.isDebugEnabled()) {
                                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                                         }
@@ -1293,6 +1294,7 @@ public class SynchronizedStatesManager {
                 try {
                     lockRequestCompleted();
                 } catch (Exception e) {
+                    cancelLockRequest();
                     if (m_log.isDebugEnabled()) {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
@@ -1744,10 +1746,10 @@ public class SynchronizedStatesManager {
                 m_groupMembers = ImmutableSet.copyOf(m_zk.getChildren(m_stateMachineMemberPath, m_membershipWatcher));
                 // Then initialize each instance
                 for (StateMachineInstance instance : m_registeredStateMachines) {
-                    instance.initializeStateMachine(m_groupMembers);
                     if (m_resetCounter > 0) {
                         instance.notifyOfStateMachineReset();
                     }
+                    instance.initializeStateMachine(m_groupMembers);
                 }
             } catch (KeeperException.SessionExpiredException e) {
                 // lost the full connection. some test cases do this...
@@ -1800,7 +1802,6 @@ public class SynchronizedStatesManager {
      private final Runnable handleCallbackException = new Runnable() {
          @Override
          public void run() {
-             System.out.println("HAHA");
              assert(m_registeredStateMachineInstances > 0 && m_registeredStateMachineInstances == m_registeredStateMachines.length);
 
              disableInstances.run();
@@ -1810,11 +1811,11 @@ public class SynchronizedStatesManager {
                  return;
              }
 
-             m_done.set(false);
              m_memberId = m_canonical_memberId + "_v" + m_resetCounter;
              for (StateMachineInstance instance : m_registeredStateMachines) {
                  instance.reset();
              }
+             m_done.set(false);
 
              initializeInstances.run();
          }
