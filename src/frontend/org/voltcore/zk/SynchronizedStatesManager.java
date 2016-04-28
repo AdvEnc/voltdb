@@ -203,7 +203,7 @@ public class SynchronizedStatesManager {
         private Set<String> m_memberResults = null;
         private int m_lastProposalVersion = 0;
 
-        protected boolean m_deregistered = false;
+        protected volatile boolean m_deregistered = false;
 
         public boolean getIsDeregistered() {
             return m_deregistered;
@@ -404,13 +404,11 @@ public class SynchronizedStatesManager {
                 cancelDistributedLock();
                 checkForBarrierParticipantsChange();
                 // Notify the derived object that we have a stable state
-                if (!m_deregistered) {
-                    try {
-                        setInitialState(readOnlyResult);
-                    } catch (Exception e) {
-                        org.voltdb.VoltDB.crashLocalVoltDB(
-                                "Error in StateMachineInstance callbacks while initializing.", true, e);
-                    }
+                try {
+                    setInitialState(readOnlyResult);
+                } catch (Exception e) {
+                    org.voltdb.VoltDB.crashLocalVoltDB(
+                            "Error in StateMachineInstance callbacks while initializing.", true, e);
                 }
             }
             else {
@@ -474,7 +472,6 @@ public class SynchronizedStatesManager {
             m_synchronizedState = null;
             m_pendingProposal = null;
             m_currentRequestType = REQUEST_TYPE.INITIALIZING;
-            m_currentParticipants = 0;
             m_memberResults = null;
             m_lastProposalVersion = 0;
             m_deregistered = false;
@@ -594,7 +591,6 @@ public class SynchronizedStatesManager {
                                     try {
                                         stateChangeProposed(proposedState);
                                     } catch (Exception e) {
-                                        requestedStateChangeAcceptable(false);
                                         if (m_log.isDebugEnabled()) {
                                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                                         }
@@ -603,7 +599,15 @@ public class SynchronizedStatesManager {
                                     }
                                 }
                                 else {
-                                    taskRequested(proposedState);
+                                    try {
+                                        taskRequested(proposedState);
+                                    } catch (Exception e) {
+                                        if (m_log.isDebugEnabled()) {
+                                            m_log.debug("Error in StateMachineInstance callbacks.", e);
+                                        }
+                                        m_deregistered = true;
+                                        m_shared_es.submit(handleCallbackException);
+                                    }
                                 }
                             }
                         }
@@ -617,7 +621,15 @@ public class SynchronizedStatesManager {
                             // provide a result.
                             ByteBuffer taskRequest = m_pendingProposal.asReadOnlyBuffer();
                             unlockLocalState();
-                            taskRequested(taskRequest);
+                            try {
+                                taskRequested(taskRequest);
+                            } catch (Exception e) {
+                                if (m_log.isDebugEnabled()) {
+                                    m_log.debug("Error in StateMachineInstance callbacks.", e);
+                                }
+                                m_deregistered = true;
+                                m_shared_es.submit(handleCallbackException);
+                            }
                         }
                         else {
                             unlockLocalState();
@@ -850,9 +862,7 @@ public class SynchronizedStatesManager {
 
                     // If we are ready to provide an initial state to the derived state machine, add us to
                     // participants watcher so we can see the next request
-                    if (!m_deregistered) {
-                        monitorParticipantChanges();
-                    }
+                    monitorParticipantChanges();
                 }
                 else {
                     unlockLocalState();
@@ -911,9 +921,7 @@ public class SynchronizedStatesManager {
                         m_deregistered = true;
                         m_shared_es.submit(handleCallbackException);
                     }
-                    if (!m_deregistered) {
-                        monitorParticipantChanges();
-                    }
+                    monitorParticipantChanges();
                 }
                 else {
                     // Process the results of a TASK request
@@ -929,7 +937,15 @@ public class SynchronizedStatesManager {
                             cancelDistributedLock();
                         }
                         unlockLocalState();
-                        correlatedTaskCompleted(initiator, taskRequest, results);
+                        try {
+                            correlatedTaskCompleted(initiator, taskRequest, results);
+                        } catch (Exception e) {
+                            if (m_log.isDebugEnabled()) {
+                                m_log.debug("Error in StateMachineInstance callbacks.", e);
+                            }
+                            m_deregistered = true;
+                            m_shared_es.submit(handleCallbackException);
+                        }
                     }
                     else {
                         ArrayList<ByteBuffer> results = getUncorrelatedResults(taskRequest, memberList);
@@ -940,7 +956,15 @@ public class SynchronizedStatesManager {
                             cancelDistributedLock();
                         }
                         unlockLocalState();
-                        uncorrelatedTaskCompleted(initiator, taskRequest, results);
+                        try {
+                            uncorrelatedTaskCompleted(initiator, taskRequest, results);
+                        } catch (Exception e) {
+                            if (m_log.isDebugEnabled()) {
+                                m_log.debug("Error in StateMachineInstance callbacks.", e);
+                            }
+                            m_deregistered = true;
+                            m_shared_es.submit(handleCallbackException);
+                        }
                     }
                     monitorParticipantChanges();
                 }
@@ -1094,6 +1118,8 @@ public class SynchronizedStatesManager {
                 Stat newProposalStat = m_zk.setData(m_barrierResultsPath, proposal, -1);
                 m_zk.create(m_myParticipantPath, null, Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
                 newProposalVersion = newProposalStat.getVersion();
+                // force the participant count to be 1, so that lock notifications can be correctly guarded
+                m_currentParticipants = 1;
             } catch (KeeperException.SessionExpiredException e) {
                 m_log.debug(m_stateMachineId + ": Received SessionExpiredException in wakeCommunityWithProposal");
             } catch (KeeperException.ConnectionLossException e) {
