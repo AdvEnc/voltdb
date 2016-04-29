@@ -407,8 +407,11 @@ public class SynchronizedStatesManager {
                 try {
                     setInitialState(readOnlyResult);
                 } catch (Exception e) {
-                    org.voltdb.VoltDB.crashLocalVoltDB(
-                            "Error in StateMachineInstance callbacks while initializing.", true, e);
+                    if (m_log.isDebugEnabled()) {
+                        m_log.debug("Error in StateMachineInstance callbacks.", e);
+                    }
+                    m_deregistered = true;
+                    m_shared_es.submit(handleCallbackException);
                 }
             }
             else {
@@ -856,8 +859,11 @@ public class SynchronizedStatesManager {
                     try {
                         setInitialState(readOnlyResult);
                     } catch (Exception e) {
-                        org.voltdb.VoltDB.crashLocalVoltDB(
-                                "Error in StateMachineInstance callbacks while initializing.", true, e);
+                        if (m_log.isDebugEnabled()) {
+                            m_log.debug("Error in StateMachineInstance callbacks.", e);
+                        }
+                        m_deregistered = true;
+                        m_shared_es.submit(handleCallbackException);
                     }
 
                     // If we are ready to provide an initial state to the derived state machine, add us to
@@ -1089,8 +1095,11 @@ public class SynchronizedStatesManager {
                 try {
                     setInitialState(readOnlyResult);
                 } catch (Exception e) {
-                    org.voltdb.VoltDB.crashLocalVoltDB(
-                            "Error in StateMachineInstance callbacks while initializing.", true, e);
+                    if (m_log.isDebugEnabled()) {
+                        m_log.debug("Error in StateMachineInstance callbacks.", e);
+                    }
+                    m_deregistered = true;
+                    m_shared_es.submit(handleCallbackException);
                 }
             }
             if (staleTask != null) {

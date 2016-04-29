@@ -401,6 +401,16 @@ public class TestStateMachine extends ZKTestBase {
         }
 
         @Override
+        protected void setInitialState(ByteBuffer currentAgreedState) {
+            if (brokenCallbackName.equals("setInitialState")) {
+                throw new NullPointerException();
+            }
+            else {
+                super.setInitialState(currentAgreedState);
+            }
+        }
+
+        @Override
         protected void taskRequested(ByteBuffer taskRequest) {
             if (brokenCallbackName.equals("taskRequested")) {
                 throw new NullPointerException();
@@ -1458,6 +1468,47 @@ public class TestStateMachine extends ZKTestBase {
             }
             assertTrue(waitLoop < 10);
             assertFalse(i0.state == newVal);
+        }
+        catch (InterruptedException e) {
+            fail("Exception occurred during test.");
+        }
+    }
+
+    @Test
+    public void testResetIfExceptionInSetInitialState() {
+        log.info("Starting testResetIfExceptionInSetInitialState");
+
+        for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+            removeStateMachinesFor(ii);
+        }
+        addBrokenBooleanStateMachinesFor(0);
+        for (int ii = 1; ii < NUM_AGREEMENT_SITES; ii++) {
+            addStateMachinesFor(ii);
+        }
+
+        try {
+            BooleanStateMachine i0 = m_booleanStateMachinesForGroup1[0];
+            i0.brokenCallbackName = "setInitialState";
+            assertEquals(0, i0.getResetCounter());
+
+            for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+                registerGroup1BoolFor(ii);
+            }
+
+            int ii = 0;
+            for (; ii < 5; ii++) {
+                if (boolsInitialized(m_booleanStateMachinesForGroup1)) {
+                    break;
+                }
+                Thread.sleep(500);
+            }
+
+            // i0 should have never been initialized successfully
+            assertEquals(5, ii);
+
+            // i0 should have reached the reset limit
+            assertTrue(i0.notifiedOfReset);
+            assertEquals(6, i0.getResetCounter());
         }
         catch (InterruptedException e) {
             fail("Exception occurred during test.");
