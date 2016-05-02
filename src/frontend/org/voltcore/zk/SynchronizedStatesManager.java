@@ -361,7 +361,13 @@ public class SynchronizedStatesManager {
             registerStateMachine(this);
         }
 
-        protected abstract ByteBuffer getResetState();
+        /**
+         * Notify the derived class that the state machine instance is being reset,
+         * the derived class should reset its own specific states and provide a reset state
+         * @param isDirectVictim true if the reset is caused by callback exception in this instance
+         * @return a ByteBuffer encapsulating the reset state provided by the derived class
+         */
+        protected abstract ByteBuffer notifyOfStateMachineReset(boolean isDirectVictim);
 
         private void initializeStateMachine(Set<String> knownMembers) throws KeeperException, InterruptedException {
             addIfMissing(m_statePath, CreateMode.PERSISTENT, null);
@@ -411,7 +417,7 @@ public class SynchronizedStatesManager {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
                     m_deregistered = true;
-                    m_shared_es.submit(handleCallbackException);
+                    m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
             else {
@@ -465,14 +471,26 @@ public class SynchronizedStatesManager {
             unlockLocalState();
         }
 
-        private void reset() {
+        private void reset(boolean isDirectVictim) {
+            ByteBuffer resetState = notifyOfStateMachineReset(isDirectVictim);
+            // if we are the direct victim, use the reset state as requested initial state
+            if (isDirectVictim) {
+                m_requestedInitialState = resetState;
+            }
+            // else simply use currently requested initial state or synchronized state as requested initial state
+            else {
+                if (m_requestedInitialState == null) {
+                    assert(m_synchronizedState != null);
+                    m_requestedInitialState = m_synchronizedState;
+                }
+            }
+            m_synchronizedState = null;
+
             m_membershipChangePending = false;
             m_stateChangeInitiator = false;
             m_ourDistributedLockName = null;
             m_lockWaitingOn = null;
             m_holdingDistributedLock = false;
-            m_requestedInitialState = getResetState();
-            m_synchronizedState = null;
             m_pendingProposal = null;
             m_currentRequestType = REQUEST_TYPE.INITIALIZING;
             m_memberResults = null;
@@ -484,8 +502,6 @@ public class SynchronizedStatesManager {
             m_myParticipantPath = m_canonical_myParticipantPath + "_v" + m_resetCounter;
             m_stateMachineId = m_canonical_stateMachineId + "_v" + m_resetCounter;
         }
-
-        protected void notifyOfStateMachineReset() {}
 
         private int getProposalVersion() {
             int proposalVersion = -1;
@@ -598,7 +614,7 @@ public class SynchronizedStatesManager {
                                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                                         }
                                         m_deregistered = true;
-                                        m_shared_es.submit(handleCallbackException);
+                                        m_shared_es.submit(new CallbackExceptionHandler(this));
                                     }
                                 }
                                 else {
@@ -609,7 +625,7 @@ public class SynchronizedStatesManager {
                                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                                         }
                                         m_deregistered = true;
-                                        m_shared_es.submit(handleCallbackException);
+                                        m_shared_es.submit(new CallbackExceptionHandler(this));
                                     }
                                 }
                             }
@@ -631,7 +647,7 @@ public class SynchronizedStatesManager {
                                     m_log.debug("Error in StateMachineInstance callbacks.", e);
                                 }
                                 m_deregistered = true;
-                                m_shared_es.submit(handleCallbackException);
+                                m_shared_es.submit(new CallbackExceptionHandler(this));
                             }
                         }
                         else {
@@ -863,7 +879,7 @@ public class SynchronizedStatesManager {
                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                         }
                         m_deregistered = true;
-                        m_shared_es.submit(handleCallbackException);
+                        m_shared_es.submit(new CallbackExceptionHandler(this));
                     }
 
                     // If we are ready to provide an initial state to the derived state machine, add us to
@@ -925,7 +941,7 @@ public class SynchronizedStatesManager {
                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                         }
                         m_deregistered = true;
-                        m_shared_es.submit(handleCallbackException);
+                        m_shared_es.submit(new CallbackExceptionHandler(this));
                     }
                     monitorParticipantChanges();
                 }
@@ -950,7 +966,7 @@ public class SynchronizedStatesManager {
                                 m_log.debug("Error in StateMachineInstance callbacks.", e);
                             }
                             m_deregistered = true;
-                            m_shared_es.submit(handleCallbackException);
+                            m_shared_es.submit(new CallbackExceptionHandler(this));
                         }
                     }
                     else {
@@ -969,7 +985,7 @@ public class SynchronizedStatesManager {
                                 m_log.debug("Error in StateMachineInstance callbacks.", e);
                             }
                             m_deregistered = true;
-                            m_shared_es.submit(handleCallbackException);
+                            m_shared_es.submit(new CallbackExceptionHandler(this));
                         }
                     }
                     monitorParticipantChanges();
@@ -1099,7 +1115,7 @@ public class SynchronizedStatesManager {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
                     m_deregistered = true;
-                    m_shared_es.submit(handleCallbackException);
+                    m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
             if (staleTask != null) {
@@ -1110,7 +1126,7 @@ public class SynchronizedStatesManager {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
                     m_deregistered = true;
-                    m_shared_es.submit(handleCallbackException);
+                    m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
         }
@@ -1282,7 +1298,7 @@ public class SynchronizedStatesManager {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
                     m_deregistered = true;
-                    m_shared_es.submit(handleCallbackException);
+                    m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
             assert(!debugIsLocalStateLocked());
@@ -1334,7 +1350,7 @@ public class SynchronizedStatesManager {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
                     m_deregistered = true;
-                    m_shared_es.submit(handleCallbackException);
+                    m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
         }
@@ -1781,9 +1797,6 @@ public class SynchronizedStatesManager {
                 m_groupMembers = ImmutableSet.copyOf(m_zk.getChildren(m_stateMachineMemberPath, m_membershipWatcher));
                 // Then initialize each instance
                 for (StateMachineInstance instance : m_registeredStateMachines) {
-                    if (m_resetCounter > 0) {
-                        instance.notifyOfStateMachineReset();
-                    }
                     instance.initializeStateMachine(m_groupMembers);
                 }
             } catch (KeeperException.SessionExpiredException e) {
@@ -1834,27 +1847,36 @@ public class SynchronizedStatesManager {
         }
     }
 
-     private final Runnable handleCallbackException = new Runnable() {
-         @Override
-         public void run() {
-             assert(m_registeredStateMachineInstances > 0 && m_registeredStateMachineInstances == m_registeredStateMachines.length);
+    private class CallbackExceptionHandler implements Runnable {
+        StateMachineInstance m_directVictim;
 
-             disableInstances.run();
+        CallbackExceptionHandler(StateMachineInstance directVictim) {
+            m_directVictim = directVictim;
+        }
 
-             ++m_resetCounter;
-             if (m_resetCounter > m_resetLimit) {
-                 return;
-             }
+        @Override
+        public void run() {
+            // if the direct victim has already been reset, ignore the stale callback exception handling task
+            if (m_directVictim.m_deregistered) {
+                assert (m_registeredStateMachineInstances > 0 && m_registeredStateMachineInstances == m_registeredStateMachines.length);
 
-             m_memberId = m_canonical_memberId + "_v" + m_resetCounter;
-             for (StateMachineInstance instance : m_registeredStateMachines) {
-                 instance.reset();
-             }
-             m_done.set(false);
+                disableInstances.run();
 
-             initializeInstances.run();
-         }
-    };
+                ++m_resetCounter;
+                if (m_resetCounter > m_resetLimit) {
+                    return;
+                }
+
+                m_memberId = m_canonical_memberId + "_v" + m_resetCounter;
+                for (StateMachineInstance instance : m_registeredStateMachines) {
+                    instance.reset(instance == m_directVictim);
+                }
+                m_done.set(false);
+
+                initializeInstances.run();
+            }
+        }
+    }
 
     /*
      * Track state machine membership. If it changes, notify all state machine instances

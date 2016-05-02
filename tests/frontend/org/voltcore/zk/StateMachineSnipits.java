@@ -102,7 +102,7 @@ public class StateMachineSnipits extends ZKTestBase {
         }
 
         @Override
-        protected ByteBuffer getResetState() {
+        protected ByteBuffer notifyOfStateMachineReset(boolean isDirectVictim) {
             return ByteBuffer.allocate(0);
         }
 
@@ -203,7 +203,7 @@ public class StateMachineSnipits extends ZKTestBase {
         }
 
         @Override
-        protected ByteBuffer getResetState() {
+        protected ByteBuffer notifyOfStateMachineReset(boolean isDirectVictim) {
             return ByteBuffer.allocate(0);
         }
 
@@ -258,7 +258,7 @@ public class StateMachineSnipits extends ZKTestBase {
         }
 
         @Override
-        protected ByteBuffer getResetState() {
+        protected ByteBuffer notifyOfStateMachineReset(boolean isDirectVictim) {
             return m_startingState;
         }
 
@@ -363,7 +363,7 @@ public class StateMachineSnipits extends ZKTestBase {
         }
 
         @Override
-        protected ByteBuffer getResetState() {
+        protected ByteBuffer notifyOfStateMachineReset(boolean isDirectVictim) {
             return ByteBuffer.allocate(0);
         }
 

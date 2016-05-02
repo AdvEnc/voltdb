@@ -131,6 +131,31 @@ public class TestStateMachine extends ZKTestBase {
         }
     }
 
+    public void addBrokenBooleanAndByteStateMachinesFor(int Site) {
+        String siteString = "zkClient" + Integer.toString(Site);
+        try {
+            // Create a SynchronizedStatesManager to manage a single BooleanStateMachine
+            SynchronizedStatesManager ssm1 = new SynchronizedStatesManager(m_messengers.get(Site).getZK(),
+                    stateMachineManagerRoot, "ssm1", siteString);
+            m_stateMachineGroup1[Site] = ssm1;
+            BooleanStateMachine bsm1 = new BrokenBooleanStateMachine(ssm1, "bool");
+            m_booleanStateMachinesForGroup1[Site] = bsm1;
+
+            // Create a SynchronizedStatesManager to manage both a BooleanStateMachine and ByteStateMachine
+            SynchronizedStatesManager ssm2 = new SynchronizedStatesManager(m_messengers.get(Site).getZK(),
+                    stateMachineManagerRoot, "ssm2", siteString, stateMachines.values().length);
+            m_stateMachineGroup2[Site] = ssm2;
+            BooleanStateMachine bsm2 = new BrokenBooleanStateMachine(ssm2, "bool");
+            m_booleanStateMachinesForGroup2[Site] = bsm2;
+            ByteStateMachine msm2 = new BrokenByteStateMachine(ssm2, "byte");
+            m_byteStateMachinesForGroup2[Site] = msm2;
+        }
+        catch (KeeperException | InterruptedException e) {
+            //  Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
     public void removeStateMachinesFor(int Site) {
         m_booleanStateMachinesForGroup1[Site] = null;
         m_booleanStateMachinesForGroup2[Site] = null;
@@ -204,6 +229,7 @@ public class TestStateMachine extends ZKTestBase {
         volatile List<ByteBuffer> uncorrelatedResults;
 
         boolean notifiedOfReset = false;
+        boolean isDirectVictim;
         String brokenCallbackName = "DEFAULT";
         volatile boolean staleTaskRequestProcessed = false;
 
@@ -227,11 +253,6 @@ public class TestStateMachine extends ZKTestBase {
         @Override
         protected void membershipChanged(Set<String> addedHosts, Set<String> removedHosts) {
             assertFalse("State machine local lock held after bool membership change", debugIsLocalStateLocked());
-        }
-
-        @Override
-        protected ByteBuffer getResetState() {
-            return bsm_states[1];
         }
 
         @Override
@@ -379,7 +400,8 @@ public class TestStateMachine extends ZKTestBase {
         }
 
         @Override
-        protected void notifyOfStateMachineReset() {
+        protected ByteBuffer notifyOfStateMachineReset(boolean isDirectVictim) {
+            this.isDirectVictim = isDirectVictim;
             staleTaskRequestProcessed = false;
             makeProposal = false;
             startTask = false;
@@ -391,6 +413,8 @@ public class TestStateMachine extends ZKTestBase {
             correlatedTask = true;
 
             notifiedOfReset = true;
+
+            return bsm_states[0]; // FALSE as reset state
         }
     }
 
@@ -509,6 +533,10 @@ public class TestStateMachine extends ZKTestBase {
         volatile Map<String, ByteBuffer> correlatedResults;
         volatile List<ByteBuffer> uncorrelatedResults;
 
+        boolean notifiedOfReset = false;
+        boolean isDirectVictim;
+        String brokenCallbackName = "DEFAULT";
+
         public byte toByte(ByteBuffer buff) {
             return buff.get();
         }
@@ -526,11 +554,6 @@ public class TestStateMachine extends ZKTestBase {
         @Override
         protected void membershipChanged(Set<String> addedHosts, Set<String> removedHosts) {
             assertFalse("State machine local lock held after byte membership change", debugIsLocalStateLocked());
-        }
-
-        @Override
-        protected ByteBuffer getResetState() {
-            return msm_states[0];
         }
 
         @Override
@@ -673,6 +696,40 @@ public class TestStateMachine extends ZKTestBase {
             byte[] b = new byte[task.remaining()];
             task.get(b, 0, b.length);
             return new String(b);
+        }
+
+        @Override
+        protected ByteBuffer notifyOfStateMachineReset(boolean isDirectVictim) {
+            this.isDirectVictim = isDirectVictim;
+            makeProposal = false;
+            startTask = false;
+            proposalsOrTasksCompleted = 0;
+            ourProposalOrTaskFinished = false;
+            acceptProposalOrTask = true;
+            justHoldTheLock = false;
+            ignoreProposal = false;
+            correlatedTask = true;
+
+            notifiedOfReset = true;
+
+            return msm_states[0]; // 100 as reset state
+        }
+    }
+
+    class BrokenByteStateMachine extends ByteStateMachine {
+
+        public BrokenByteStateMachine(SynchronizedStatesManager ssm, String instanceName) {
+            super(ssm, instanceName);
+        }
+
+        @Override
+        protected void stateChangeProposed(ByteBuffer proposedState) {
+            if (brokenCallbackName.equals("stateChangeProposed")) {
+                throw new NullPointerException();
+            }
+            else {
+                super.stateChangeProposed(proposedState);
+            }
         }
     }
 
@@ -1259,6 +1316,151 @@ public class TestStateMachine extends ZKTestBase {
             assertTrue(g2j0.state == rawByteStates[2]);
             assertTrue(g1i0.state);
        }
+        catch (Exception e) {
+            fail("Exception occurred during test.");
+        }
+    }
+
+    @Test
+    public void testCallbackExceptionCorrectlyResetOtherStateMachines() {
+        log.info("Starting testCallbackExceptionCorrectlyResetOtherStateMachines");
+
+        for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+            removeStateMachinesFor(ii);
+        }
+        addBrokenBooleanStateMachinesFor(0);
+        for (int ii = 1; ii < NUM_AGREEMENT_SITES; ii++) {
+            addStateMachinesFor(ii);
+        }
+
+        try {
+            BooleanStateMachine g2i0 = m_booleanStateMachinesForGroup2[0];
+            g2i0.brokenCallbackName = "stateChangeProposed";
+            BooleanStateMachine g2i1 = m_booleanStateMachinesForGroup2[1];
+            ByteStateMachine g2j0 = m_byteStateMachinesForGroup2[0];
+            ByteStateMachine g2j1 = m_byteStateMachinesForGroup2[1];
+
+            // For any site all state machine instances must be registered before it participates with other sites
+            for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+                m_booleanStateMachinesForGroup2[ii].registerStateMachineWithManager(bsm_states[0]);
+                m_byteStateMachinesForGroup2[ii].registerStateMachineWithManager(msm_states[0]);
+            }
+
+            while (!boolsInitialized(m_booleanStateMachinesForGroup2)) {
+                Thread.sleep(500);
+            }
+            assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup2));
+
+            while (!bytesInitialized(m_byteStateMachinesForGroup2)) {
+                Thread.sleep(500);
+            }
+            assertTrue(bytesSynchronized(m_byteStateMachinesForGroup2));
+
+            // StateMachine Group 2 is stable. Change some states in Group 2 and start up the Group 1
+            g2j0.switchState();     // set Group 2 Byte State to rawByteStates[1]
+            g2j1.switchState();     // set Group 2 Byte State to rawByteStates[2]
+            while (!byteProposalOrTaskFinished(m_byteStateMachinesForGroup2, 2) ||
+                    !bytesSynchronized(m_byteStateMachinesForGroup2)) {
+                Thread.sleep(500);
+            }
+            g2i1.switchState();     // set Group 2 Bool State to true, will trigger the reset
+
+            int waitLoop = 0;
+            for (; waitLoop < 5; waitLoop++) {
+                if (boolProposalOrTaskFinished(m_booleanStateMachinesForGroup2, 1) &&
+                        boolsSynchronized(m_booleanStateMachinesForGroup2)) {
+                    break;
+                }
+                Thread.sleep(500);
+            }
+            // i0 should have never stepped into proposedStateResolved because of the reset, so the actual
+            // completion count is 0, hence the timeout, but the state will be correctly switched after the reset
+            assertEquals(5, waitLoop);
+            assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup2));
+            assertTrue(g2i0.state);
+            assertTrue(g2i0.notifiedOfReset);
+            assertEquals(1, g2i0.getResetCounter());
+            assertTrue(g2i0.isDirectVictim);
+
+            // Verify that the group2 byte state machine at site 0 was also reset, and reinitialized with correct state
+            assertTrue(bytesSynchronized(m_byteStateMachinesForGroup2));
+            assertEquals(rawByteStates[2], g2j0.state);
+            assertTrue(g2j0.notifiedOfReset);
+            assertEquals(1, g2j0.getResetCounter());
+            assertFalse(g2j0.isDirectVictim);
+        }
+        catch (Exception e) {
+            fail("Exception occurred during test.");
+        }
+    }
+
+    @Test
+    public void testIgnoreStaleCallbackExceptionHandler() {
+        log.info("Starting testIgnoreStaleCallbackExceptionHandler");
+
+        for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+            removeStateMachinesFor(ii);
+        }
+        addBrokenBooleanAndByteStateMachinesFor(0);
+        for (int ii = 1; ii < NUM_AGREEMENT_SITES; ii++) {
+            addStateMachinesFor(ii);
+        }
+
+        try {
+            BooleanStateMachine g2i0 = m_booleanStateMachinesForGroup2[0];
+            g2i0.brokenCallbackName = "stateChangeProposed";
+            BooleanStateMachine g2i1 = m_booleanStateMachinesForGroup2[1];
+            ByteStateMachine g2j0 = m_byteStateMachinesForGroup2[0];
+            g2j0.brokenCallbackName = "stateChangeProposed";
+            ByteStateMachine g2j1 = m_byteStateMachinesForGroup2[1];
+
+            // For any site all state machine instances must be registered before it participates with other sites
+            for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
+                m_booleanStateMachinesForGroup2[ii].registerStateMachineWithManager(bsm_states[0]);
+                m_byteStateMachinesForGroup2[ii].registerStateMachineWithManager(msm_states[0]);
+            }
+
+            while (!boolsInitialized(m_booleanStateMachinesForGroup2)) {
+                Thread.sleep(500);
+            }
+            assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup2));
+
+            while (!bytesInitialized(m_byteStateMachinesForGroup2)) {
+                Thread.sleep(500);
+            }
+            assertTrue(bytesSynchronized(m_byteStateMachinesForGroup2));
+
+            g2i1.switchState();     // set Group 2 Bool State to true, will trigger the reset
+            g2j1.switchState();     // set Group 2 Byte State to 110, will also trigger the reset
+
+            int waitLoop = 0;
+            for (; waitLoop < 5; waitLoop++) {
+                if (boolProposalOrTaskFinished(m_booleanStateMachinesForGroup2, 1) &&
+                        boolsSynchronized(m_booleanStateMachinesForGroup2)) {
+                    break;
+                }
+                Thread.sleep(500);
+            }
+            // i0 should have never stepped into proposedStateResolved because of the reset, so the actual
+            // completion count is 0, hence the timeout, but the state will be correctly switched after the reset
+            assertEquals(5, waitLoop);
+            assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup2));
+            assertTrue(g2i0.state);
+            assertTrue(g2i0.notifiedOfReset);
+            assertEquals(1, g2i0.getResetCounter());
+            assertTrue(g2i0.isDirectVictim);
+
+            // Verify that the group2 byte state machine at site 0 was also reset, and reinitialized with correct state
+            // Additionally, reset counter will be 1 instead of 2 because at the time when the byte state machine's
+            // callback exception handler is dispatched, the instance has already been reset with m_deregistered
+            // set back to false by the first callback exception handler queued by the boolean state machine instance,
+            // causing the second stale callback exception handler to be ignored and the reset counter not incremented
+            assertTrue(bytesSynchronized(m_byteStateMachinesForGroup2));
+            assertEquals(rawByteStates[1], g2j0.state);
+            assertTrue(g2j0.notifiedOfReset);
+            assertEquals(1, g2j0.getResetCounter());
+            assertFalse(g2j0.isDirectVictim);
+        }
         catch (Exception e) {
             fail("Exception occurred during test.");
         }
