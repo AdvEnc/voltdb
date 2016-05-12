@@ -203,10 +203,12 @@ public class SynchronizedStatesManager {
         private Set<String> m_memberResults = null;
         private int m_lastProposalVersion = 0;
 
-        protected volatile boolean m_deregistered = false;
+        private boolean m_initializationCompleted = false;
 
-        public boolean getIsDeregistered() {
-            return m_deregistered;
+        private boolean isInitializationCompleted() {
+            lockLocalState();
+            unlockLocalState();
+            return m_initializationCompleted;
         }
 
         public int getResetCounter() {
@@ -407,6 +409,7 @@ public class SynchronizedStatesManager {
                 m_lockWaitingOn = "bogus"; // Avoids call to notifyDistributedLockWaiter
                 m_log.info(m_stateMachineId + ": Initialized (first member) with State " +
                         stateToString(m_synchronizedState.asReadOnlyBuffer()));
+                m_initializationCompleted = true;
                 cancelDistributedLock();
                 checkForBarrierParticipantsChange();
                 // Notify the derived object that we have a stable state
@@ -416,7 +419,7 @@ public class SynchronizedStatesManager {
                     if (m_log.isDebugEnabled()) {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
-                    m_deregistered = true;
+                    m_initializationCompleted = false;
                     m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
@@ -468,6 +471,7 @@ public class SynchronizedStatesManager {
             }
             catch (KeeperException e) {
             }
+            m_initializationCompleted = false;
             unlockLocalState();
         }
 
@@ -495,7 +499,6 @@ public class SynchronizedStatesManager {
             m_currentRequestType = REQUEST_TYPE.INITIALIZING;
             m_memberResults = null;
             m_lastProposalVersion = 0;
-            m_deregistered = false;
             m_mutexLockedCnt = 0;
 
             m_myResultPath = m_canonical_myResultPath + "_v" + m_resetCounter;
@@ -613,7 +616,7 @@ public class SynchronizedStatesManager {
                                         if (m_log.isDebugEnabled()) {
                                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                                         }
-                                        m_deregistered = true;
+                                        m_initializationCompleted = false;
                                         m_shared_es.submit(new CallbackExceptionHandler(this));
                                     }
                                 }
@@ -624,7 +627,7 @@ public class SynchronizedStatesManager {
                                         if (m_log.isDebugEnabled()) {
                                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                                         }
-                                        m_deregistered = true;
+                                        m_initializationCompleted = false;
                                         m_shared_es.submit(new CallbackExceptionHandler(this));
                                     }
                                 }
@@ -646,7 +649,7 @@ public class SynchronizedStatesManager {
                                 if (m_log.isDebugEnabled()) {
                                     m_log.debug("Error in StateMachineInstance callbacks.", e);
                                 }
-                                m_deregistered = true;
+                                m_initializationCompleted = false;
                                 m_shared_es.submit(new CallbackExceptionHandler(this));
                             }
                         }
@@ -871,6 +874,7 @@ public class SynchronizedStatesManager {
                     m_pendingProposal = null;
                     m_log.info(m_stateMachineId + ": Initialized (concensus) with State " +
                             stateToString(m_synchronizedState.asReadOnlyBuffer()));
+                    m_initializationCompleted = true;
                     unlockLocalState();
                     try {
                         setInitialState(readOnlyResult);
@@ -878,13 +882,15 @@ public class SynchronizedStatesManager {
                         if (m_log.isDebugEnabled()) {
                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                         }
-                        m_deregistered = true;
+                        m_initializationCompleted = false;
                         m_shared_es.submit(new CallbackExceptionHandler(this));
                     }
 
-                    // If we are ready to provide an initial state to the derived state machine, add us to
-                    // participants watcher so we can see the next request
-                    monitorParticipantChanges();
+                    if (m_initializationCompleted) {
+                        // If we are ready to provide an initial state to the derived state machine, add us to
+                        // participants watcher so we can see the next request
+                        monitorParticipantChanges();
+                    }
                 }
                 else {
                     unlockLocalState();
@@ -940,10 +946,13 @@ public class SynchronizedStatesManager {
                         if (m_log.isDebugEnabled()) {
                             m_log.debug("Error in StateMachineInstance callbacks.", e);
                         }
-                        m_deregistered = true;
+                        m_initializationCompleted = false;
                         m_shared_es.submit(new CallbackExceptionHandler(this));
                     }
-                    monitorParticipantChanges();
+
+                    if (m_initializationCompleted) {
+                        monitorParticipantChanges();
+                    }
                 }
                 else {
                     // Process the results of a TASK request
@@ -965,7 +974,7 @@ public class SynchronizedStatesManager {
                             if (m_log.isDebugEnabled()) {
                                 m_log.debug("Error in StateMachineInstance callbacks.", e);
                             }
-                            m_deregistered = true;
+                            m_initializationCompleted = false;
                             m_shared_es.submit(new CallbackExceptionHandler(this));
                         }
                     }
@@ -984,11 +993,14 @@ public class SynchronizedStatesManager {
                             if (m_log.isDebugEnabled()) {
                                 m_log.debug("Error in StateMachineInstance callbacks.", e);
                             }
-                            m_deregistered = true;
+                            m_initializationCompleted = false;
                             m_shared_es.submit(new CallbackExceptionHandler(this));
                         }
                     }
-                    monitorParticipantChanges();
+
+                    if (m_initializationCompleted) {
+                        monitorParticipantChanges();
+                    }
                 }
             }
         }
@@ -1091,6 +1103,7 @@ public class SynchronizedStatesManager {
                     if (existingAndProposedStates.m_requestType != REQUEST_TYPE.INITIALIZING) {
                         staleTask = existingAndProposedStates.m_proposal.asReadOnlyBuffer();
                     }
+                    m_initializationCompleted = true;
                     cancelDistributedLock();
                     // Add an acceptable result so the next initializing member recognizes an immediate quorum.
                     m_lockWaitingOn = "bogus"; // Avoids call to notifyDistributedLockWaiter below
@@ -1114,7 +1127,7 @@ public class SynchronizedStatesManager {
                     if (m_log.isDebugEnabled()) {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
-                    m_deregistered = true;
+                    m_initializationCompleted = false;
                     m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
@@ -1125,7 +1138,7 @@ public class SynchronizedStatesManager {
                     if (m_log.isDebugEnabled()) {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
-                    m_deregistered = true;
+                    m_initializationCompleted = false;
                     m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
@@ -1297,7 +1310,7 @@ public class SynchronizedStatesManager {
                     if (m_log.isDebugEnabled()) {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
-                    m_deregistered = true;
+                    m_initializationCompleted = false;
                     m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
@@ -1349,7 +1362,7 @@ public class SynchronizedStatesManager {
                     if (m_log.isDebugEnabled()) {
                         m_log.debug("Error in StateMachineInstance callbacks.", e);
                     }
-                    m_deregistered = true;
+                    m_initializationCompleted = false;
                     m_shared_es.submit(new CallbackExceptionHandler(this));
                 }
             }
@@ -1448,7 +1461,7 @@ public class SynchronizedStatesManager {
         protected boolean isInitialized() {
             boolean initialized;
             lockLocalState();
-            initialized = m_requestedInitialState == null;
+            initialized = m_initializationCompleted && m_requestedInitialState == null;
             unlockLocalState();
             return initialized;
         }
@@ -1464,7 +1477,10 @@ public class SynchronizedStatesManager {
          */
         protected boolean requestLock() {
             lockLocalState();
-            boolean rslt = requestDistributedLock();
+            boolean rslt = false;
+            if (m_initializationCompleted) {
+                rslt = requestDistributedLock();
+            }
             unlockLocalState();
             return rslt;
         }
@@ -1476,8 +1492,10 @@ public class SynchronizedStatesManager {
          */
         protected void cancelLockRequest() {
             lockLocalState();
-            assert(m_pendingProposal == null);
-            cancelDistributedLock();
+            if (m_initializationCompleted) {
+                assert (m_pendingProposal == null);
+                cancelDistributedLock();
+            }
             unlockLocalState();
         }
 
@@ -1493,6 +1511,10 @@ public class SynchronizedStatesManager {
             assert(proposedState != null);
             assert(proposedState.remaining() < Short.MAX_VALUE);
             lockLocalState();
+            if (!m_initializationCompleted) {
+                unlockLocalState();
+                return;
+            }
             // Only the lock owner can initiate a barrier request
             assert(m_requestedInitialState == null);
             if (proposedState.position() == 0) {
@@ -1525,6 +1547,10 @@ public class SynchronizedStatesManager {
          */
         protected void requestedStateChangeAcceptable(boolean acceptable) {
             lockLocalState();
+            if (!m_initializationCompleted) {
+                unlockLocalState();
+                return;
+            }
             assert(!m_stateChangeInitiator);
             m_log.debug(m_stateMachineId + (acceptable?": Agrees with State proposal":
                     ": Disagrees with State proposal"));
@@ -1544,35 +1570,35 @@ public class SynchronizedStatesManager {
             assert(proposedTask != null);
             assert(proposedTask.remaining() < Short.MAX_VALUE);
             lockLocalState();
-            // Only the lock owner can initiate a barrier request
-            assert(m_requestedInitialState == null);
-            if (proposedTask.position() == 0) {
+            if (m_initializationCompleted) {
+                // Only the lock owner can initiate a barrier request
+                assert (m_requestedInitialState == null);
+                if (proposedTask.position() == 0) {
+                    m_pendingProposal = proposedTask;
+                } else {
+                    // Move to a new 0 aligned buffer
+                    m_pendingProposal = ByteBuffer.allocate(proposedTask.remaining());
+                    m_pendingProposal.put(proposedTask.array(),
+                            proposedTask.arrayOffset() + proposedTask.position(), proposedTask.remaining());
+                    m_pendingProposal.flip();
+                }
+                if (m_log.isDebugEnabled()) {
+                    if (m_pendingProposal.hasRemaining()) {
+                        m_log.debug(m_stateMachineId + ": Requested new Task " + taskToString(m_pendingProposal.asReadOnlyBuffer()));
+                    } else {
+                        m_log.debug(m_stateMachineId + ": Requested unspecified new Task");
+                    }
+                }
+                m_stateChangeInitiator = true;
+                m_currentRequestType = correlated ?
+                        REQUEST_TYPE.CORRELATED_COORDINATED_TASK :
+                        REQUEST_TYPE.UNCORRELATED_COORDINATED_TASK;
+                ByteBuffer taskProposal = buildProposal(m_currentRequestType,
+                        m_synchronizedState.asReadOnlyBuffer(), proposedTask.asReadOnlyBuffer());
                 m_pendingProposal = proposedTask;
+                // Since we don't update m_lastProposalVersion, we will wake ourselves up
+                wakeCommunityWithProposal(taskProposal.array());
             }
-            else {
-                // Move to a new 0 aligned buffer
-                m_pendingProposal = ByteBuffer.allocate(proposedTask.remaining());
-                m_pendingProposal.put(proposedTask.array(),
-                        proposedTask.arrayOffset()+proposedTask.position(), proposedTask.remaining());
-                m_pendingProposal.flip();
-            }
-            if (m_log.isDebugEnabled()) {
-                if (m_pendingProposal.hasRemaining()) {
-                    m_log.debug(m_stateMachineId + ": Requested new Task " + taskToString(m_pendingProposal.asReadOnlyBuffer()));
-                }
-                else {
-                    m_log.debug(m_stateMachineId + ": Requested unspecified new Task");
-                }
-            }
-            m_stateChangeInitiator = true;
-            m_currentRequestType = correlated ?
-                    REQUEST_TYPE.CORRELATED_COORDINATED_TASK :
-                    REQUEST_TYPE.UNCORRELATED_COORDINATED_TASK;
-            ByteBuffer taskProposal = buildProposal(m_currentRequestType,
-                    m_synchronizedState.asReadOnlyBuffer(), proposedTask.asReadOnlyBuffer());
-            m_pendingProposal = proposedTask;
-            // Since we don't update m_lastProposalVersion, we will wake ourselves up
-            wakeCommunityWithProposal(taskProposal.array());
             unlockLocalState();
         }
 
@@ -1594,6 +1620,10 @@ public class SynchronizedStatesManager {
         protected void requestedTaskComplete(ByteBuffer result)
         {
             lockLocalState();
+            if (!m_initializationCompleted) {
+                unlockLocalState();
+                return;
+            }
             assert(m_pendingProposal != null);
             if (m_log.isDebugEnabled()) {
                 if (result.hasRemaining()) {
@@ -1626,8 +1656,14 @@ public class SynchronizedStatesManager {
          * warning: The ByteBuffer taskRequest is not guaranteed to start at position 0 (avoid rewind, flip, ...)
          */
         protected ByteBuffer getCurrentState() {
+            ByteBuffer currentState;
             lockLocalState();
-            ByteBuffer currentState = m_synchronizedState.asReadOnlyBuffer();
+            if (m_initializationCompleted) {
+                currentState = m_synchronizedState.asReadOnlyBuffer();
+            }
+            else {
+                currentState = ByteBuffer.allocate(0);
+            }
             unlockLocalState();
             return currentState;
         }
@@ -1659,6 +1695,8 @@ public class SynchronizedStatesManager {
         }
 
         protected boolean holdingDistributedLock() {
+            lockLocalState();
+            unlockLocalState();
             return m_holdingDistributedLock;
         }
 
@@ -1848,7 +1886,7 @@ public class SynchronizedStatesManager {
     }
 
     private class CallbackExceptionHandler implements Runnable {
-        StateMachineInstance m_directVictim;
+        final StateMachineInstance m_directVictim;
 
         CallbackExceptionHandler(StateMachineInstance directVictim) {
             m_directVictim = directVictim;
@@ -1857,7 +1895,7 @@ public class SynchronizedStatesManager {
         @Override
         public void run() {
             // if the direct victim has already been reset, ignore the stale callback exception handling task
-            if (m_directVictim.m_deregistered) {
+            if (!m_directVictim.isInitializationCompleted()) {
                 assert (m_registeredStateMachineInstances > 0 && m_registeredStateMachineInstances == m_registeredStateMachines.length);
 
                 disableInstances.run();
@@ -1868,8 +1906,13 @@ public class SynchronizedStatesManager {
                 }
 
                 m_memberId = m_canonical_memberId + "_v" + m_resetCounter;
-                for (StateMachineInstance instance : m_registeredStateMachines) {
-                    instance.reset(instance == m_directVictim);
+                try {
+                    for (StateMachineInstance instance : m_registeredStateMachines) {
+                        instance.reset(instance == m_directVictim);
+                    }
+                }
+                catch (Exception e) {
+                    return; // if something wrong happened in reset(), give up as if the reset limit is hit
                 }
                 m_done.set(false);
 

@@ -1395,8 +1395,8 @@ public class TestStateMachine extends ZKTestBase {
     }
 
     @Test
-    public void testIgnoreStaleCallbackExceptionHandler() {
-        log.info("Starting testIgnoreStaleCallbackExceptionHandler");
+    public void testHandleMultipleCallbackExceptionHandlerFromDifferentSMI() {
+        log.info("Starting testHandleMultipleCallbackExceptionHandlerFromDifferentSMI");
 
         for (int ii = 0; ii < NUM_AGREEMENT_SITES; ii++) {
             removeStateMachinesFor(ii);
@@ -1447,19 +1447,14 @@ public class TestStateMachine extends ZKTestBase {
             assertTrue(boolsSynchronized(m_booleanStateMachinesForGroup2));
             assertTrue(g2i0.state);
             assertTrue(g2i0.notifiedOfReset);
-            assertEquals(1, g2i0.getResetCounter());
-            assertTrue(g2i0.isDirectVictim);
+            assertEquals(2, g2i0.getResetCounter());
+            assertFalse(g2i0.isDirectVictim);
 
-            // Verify that the group2 byte state machine at site 0 was also reset, and reinitialized with correct state
-            // Additionally, reset counter will be 1 instead of 2 because at the time when the byte state machine's
-            // callback exception handler is dispatched, the instance has already been reset with m_deregistered
-            // set back to false by the first callback exception handler queued by the boolean state machine instance,
-            // causing the second stale callback exception handler to be ignored and the reset counter not incremented
             assertTrue(bytesSynchronized(m_byteStateMachinesForGroup2));
             assertEquals(rawByteStates[1], g2j0.state);
             assertTrue(g2j0.notifiedOfReset);
-            assertEquals(1, g2j0.getResetCounter());
-            assertFalse(g2j0.isDirectVictim);
+            assertEquals(2, g2j0.getResetCounter());
+            assertTrue(g2j0.isDirectVictim);
         }
         catch (Exception e) {
             fail("Exception occurred during test.");
