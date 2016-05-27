@@ -584,8 +584,10 @@ void DRTupleStream::generateDREvent(DREventType type, int64_t lastCommittedSpHan
         m_currBlock->startDRSequenceNumber(m_openSequenceNumber);
         m_currBlock->recordCompletedSequenceNumForDR(m_openSequenceNumber);
         if (UniqueId::isMpUniqueId(uniqueId)) {
+            m_lastCommittedMpUniqueId = uniqueId;
             m_currBlock->recordCompletedMpTxnForDR(uniqueId);
         } else {
+            m_lastCommittedSpUniqueId = uniqueId;
             m_currBlock->recordCompletedSpTxnForDR(uniqueId);
         }
         m_currBlock->markAsEventBuffer(type);
