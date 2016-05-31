@@ -565,9 +565,13 @@ bool DRTupleStream::checkOpenTransaction(StreamBlock* sb, size_t minLength, size
 
 void DRTupleStream::generateDREvent(DREventType type, int64_t lastCommittedSpHandle, int64_t spHandle,
         int64_t uniqueId, ByteArray payloads) {
+    assert(!m_opened);
+
     switch (type) {
     case CATALOG_UPDATE: {
         if (!m_enabled) {
+            m_committedSpHandle = m_openSpHandle = spHandle;
+            m_committedUniqueId = m_openUniqueId = uniqueId;
             m_committedSequenceNumber = ++m_openSequenceNumber;
             return;
         }
@@ -592,11 +596,14 @@ void DRTupleStream::generateDREvent(DREventType type, int64_t lastCommittedSpHan
         }
         m_currBlock->markAsEventBuffer(type);
 
+        m_committedUso = m_uso;
+        m_committedSpHandle = m_openSpHandle = spHandle;
+        m_committedUniqueId = m_openUniqueId = uniqueId;
+        m_committedSequenceNumber = m_openSequenceNumber;
+
         extendBufferChain(0);
 
         pushPendingBlocks();
-
-        m_committedSequenceNumber = m_openSequenceNumber;
         break;
     }
     default:
