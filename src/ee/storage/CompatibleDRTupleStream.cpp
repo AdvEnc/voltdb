@@ -350,6 +350,19 @@ void CompatibleDRTupleStream::endTransaction(int64_t uniqueId) {
     }
 
     if (!m_enabled) {
+        if (m_openUniqueId != uniqueId) {
+            throwFatalException(
+                "Stream UniqueId (%jd) does not match the Context's UniqueId (%jd)."
+                " DR sequence number is out of sync with UniqueId",
+                (intmax_t)m_openUniqueId, (intmax_t)uniqueId);
+        }
+
+        if (UniqueId::isMpUniqueId(uniqueId)) {
+            m_lastCommittedMpUniqueId = uniqueId;
+        } else {
+            m_lastCommittedSpUniqueId = uniqueId;
+        }
+
         m_committedSpHandle = m_openSpHandle;
         m_committedUniqueId = m_openUniqueId;
         m_committedSequenceNumber = m_openSequenceNumber;
