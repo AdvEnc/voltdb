@@ -20,6 +20,7 @@ package org.voltdb.plannodes;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import org.json_voltpatches.JSONArray;
 import org.json_voltpatches.JSONException;
@@ -260,10 +261,12 @@ public class AggregatePlanNode extends AbstractPlanNode {
 
             assert(m_hasSignificantOutputSchema);
         }
-        // Possible subquery expressions
-        Collection<AbstractExpression> exprs = findAllExpressionsOfClass(AbstractSubqueryExpression.class);
-        for (AbstractExpression expr: exprs) {
-            ExpressionUtil.generateSubqueryExpressionOutputSchema(expr, db);
+
+        // Generate the output schema for subqueries
+        Collection<AbstractExpression> subqueryExpressions = findAllSubquerySubexpressions();
+        for (AbstractExpression subqueryExpression : subqueryExpressions) {
+            assert(subqueryExpression instanceof AbstractSubqueryExpression);
+            ((AbstractSubqueryExpression) subqueryExpression).generateOutputSchema(db);
         }
     }
 
@@ -340,10 +343,14 @@ public class AggregatePlanNode extends AbstractPlanNode {
             tve.setColumnIndex(index);
         }
 
+        resolveSubqueryColumnIndexes();
+    }
+
+    protected void resolveSubqueryColumnIndexes() {
         // Possible subquery expressions
-        Collection<AbstractExpression> exprs = findAllExpressionsOfClass(AbstractSubqueryExpression.class);
+        Collection<AbstractExpression> exprs = findAllSubquerySubexpressions();
         for (AbstractExpression expr: exprs) {
-            ExpressionUtil.resolveSubqueryExpressionColumnIndexes(expr);
+            ((AbstractSubqueryExpression) expr).resolveColumnIndexes();
         }
     }
 
@@ -548,18 +555,20 @@ public class AggregatePlanNode extends AbstractPlanNode {
     }
 
     @Override
-    public Collection<AbstractExpression> findAllExpressionsOfClass(Class< ? extends AbstractExpression> aeClass) {
-        Collection<AbstractExpression> collected = super.findAllExpressionsOfClass(aeClass);
-
-        collected.addAll(ExpressionUtil.findAllExpressionsOfClass(m_prePredicate, aeClass));
-        collected.addAll(ExpressionUtil.findAllExpressionsOfClass(m_postPredicate, aeClass));
+    public void findAllExpressionsOfClass(Class< ? extends AbstractExpression> aeClass, Set<AbstractExpression> collected) {
+        super.findAllExpressionsOfClass(aeClass, collected);
+        if (m_prePredicate != null) {
+            collected.addAll(m_prePredicate.findAllSubexpressionsOfClass(aeClass));
+        }
+        if (m_postPredicate != null) {
+            collected.addAll(m_postPredicate.findAllSubexpressionsOfClass(aeClass));
+        }
         for (AbstractExpression ae : m_aggregateExpressions) {
-            collected.addAll(ExpressionUtil.findAllExpressionsOfClass(ae, aeClass));
+            collected.addAll(ae.findAllSubexpressionsOfClass(aeClass));
         }
         for (AbstractExpression ae : m_groupByExpressions) {
-            collected.addAll(ExpressionUtil.findAllExpressionsOfClass(ae, aeClass));
+            collected.addAll(ae.findAllSubexpressionsOfClass(aeClass));
         }
-        return collected;
     }
 
     @Override
