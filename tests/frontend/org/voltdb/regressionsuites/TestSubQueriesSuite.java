@@ -80,7 +80,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * Simple sub-query
      * @throws Exception
      */
-    public void UNtestSimpleFromClause() throws Exception
+    public void testSimpleFromClause() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -140,7 +140,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * SELECT FROM SELECT FROM GROUP BY
      * @throws Exception
      */
-    public void UNtestFromClauseAggregation() throws Exception
+    public void testFromClauseAggregation() throws Exception
     {
         Client client = getClient();
         loadData(true);
@@ -217,7 +217,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * Join two sub queries
      * @throws Exception
      */
-    public void UNtestJoinsOfSubselects() throws Exception
+    public void testJoinsOfSubselects() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -272,7 +272,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void UNtestFromReplicated() throws Exception
+    public void testFromReplicated() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -304,7 +304,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
 
     // This got a wrong answer when partitioned GROUP in subquery is joined with replicated parent table
-    public void UNtestENG6276() throws Exception
+    public void testENG6276() throws Exception
     {
         Client client = getClient();
         String sql;
@@ -348,7 +348,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * Simple sub-query expression
      * @throws Exception
      */
-    public void UNtestInExistsSimple() throws Exception
+    public void testInExistsSimple() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -421,7 +421,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void UNtestLhsScalarInSubquery() throws Exception
+    public void testLhsScalarInSubquery() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -478,7 +478,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * Join two sub queries
      * @throws Exception
      */
-    public void UNtestJoinsOfInExists() throws Exception
+    public void testJoinsOfInExists() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -521,7 +521,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * SELECT WHERE IN/EXISTS SELECT GROUP BY
      * @throws Exception
      */
-    public void UNtestInExistsGroupBy() throws Exception
+    public void testInExistsGroupBy() throws Exception
     {
         Client client = getClient();
         loadData(true);
@@ -616,7 +616,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * SELECT ... HAVING ... SELECT
      * @throws Exception
      */
-    public void UNtestHavingSubselect() throws Exception
+    public void testHavingSubselect() throws Exception
     {
         Client client = getClient();
         loadData(true);
@@ -654,7 +654,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * SELECT ... WHERE ... SELECT UNION SELECT
      * @throws Exception
      */
-    public void UNtestUnions() throws Exception
+    public void testUnions() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -691,7 +691,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void UNtestRowInOrOpAnyNonNull() throws Exception
+    public void testRowInOrOpAnyNonNull() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -900,7 +900,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *
      * @throws Exception
      */
-    public void UNtestRowEqualityIsNull() throws Exception
+    public void testRowEqualityIsNull() throws Exception
     {
         Client client = getClient();
         //                                 id, wage, dept, tm
@@ -979,7 +979,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *       and there are "near misses" involving NULLs
      * @throws Exception
      */
-    public void UNtestRowInOrOpAnyWithInnerNull() throws Exception
+    public void testRowInOrOpAnyWithInnerNull() throws Exception
     {
         Client client = getClient();
         //                                 id, wage, dept, tm
@@ -1228,7 +1228,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *
      * @throws Exception
      */
-    public void UNtestRowNotOrIsNullInOrOpAnyWithInnerNull() throws Exception
+    public void testRowNotOrIsNullInOrOpAnyWithInnerNull() throws Exception
     {
         Client client = getClient();
         //                                 id, wage, dept, tm
@@ -1459,7 +1459,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *
      * @throws Exception
      */
-    public void UNtestRowOpAllWithInnerNull() throws Exception
+    public void testRowOpAllWithInnerNull() throws Exception
     {
         Client client = getClient();
         //                                 id, wage, dept, tm
@@ -1805,7 +1805,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     *
      * @throws Exception
      */
-    public void UNtestRowOpAllNoNull() throws Exception
+    public void testRowOpAllNoNull() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -1960,7 +1960,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
 
 
-    public void UNtestInExistsOrOpAnyWithInnerNull() throws Exception
+    public void testInExistsOrOpAnyWithInnerNull() throws Exception
     {
         Client client = getClient();
         //                                 id, wage, dept, tm
@@ -2043,7 +2043,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * to prevent IN-to-EXISTS optimization
      * @throws Exception
      */
-    public void UNtestOuterNullInOpAny() throws Exception
+    public void testOuterNullInOpAny() throws Exception
     {
         Client client = getClient();
         //                                 id, wage, dept, tm
@@ -2178,7 +2178,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *
      * @throws Exception
      */
-    public void UNtestOpAllWithInnerNull() throws Exception
+    public void testOpAllWithInnerNull() throws Exception
     {
         Client client = getClient();
         //                                 id, wage, dept, tm
@@ -2251,7 +2251,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * If outer_expr is NULL and inner_expr produces any row => NULL
      * @throws Exception
      */
-    public void UNtestOpAllWithOuterNull() throws Exception
+    public void testOpAllWithOuterNull() throws Exception
     {
         Client client = getClient();
         //                                 id, wage, dept, tm
@@ -2305,7 +2305,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
 
     // Test subqueries on partitioned table cases
-    public void UNtestSubSelects_from_partitioned() throws Exception
+    public void testSubSelects_from_partitioned() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -2377,7 +2377,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
 
     // Test scalar subqueries
-    public void UNtestSelectScalar() throws Exception
+    public void testSelectScalar() throws Exception
     {
         Client client = getClient();
         loadData(true);
@@ -2387,14 +2387,11 @@ public class TestSubQueriesSuite extends RegressionSuite {
             subTestGroupByScalarSubqueryWithParentTable(client, tb);
         }
 
-
         // ENG-8145
         subTestScalarSubqueryWithParentOrderByOrGroupBy(client);
 
-        //
         // ENG-8159, ENG-8160
         // test Scalar sub-query with non-integer type
-        //
         subTestScalarSubqueryWithNonIntegerType(client);
     }
 
@@ -2704,7 +2701,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         assertEquals(2, vt.getLong(0)); assertEquals("foo1", vt.getString(1));
     }
 
-    public void UNtestWhereScalarSubSelects() throws Exception
+    public void testWhereScalarSubSelects() throws Exception
     {
         Client client = getClient();
         loadData(false);
@@ -2823,7 +2820,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void UNtestSingleColumnOpAll() throws Exception {
+    public void testSingleColumnOpAll() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -2884,7 +2881,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void UNtestWhereRowSubSelects() throws Exception
+    public void testWhereRowSubSelects() throws Exception
     {
         if (isHSQL()) {
             // hsqldb has back end error for these cases
@@ -2993,7 +2990,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
     }
 
-    public void UNtestRepeatedQueriesDifferentData() throws Exception
+    public void testRepeatedQueriesDifferentData() throws Exception
     {
         Client client = getClient();
         //                               id,wage,dept,tm
@@ -3013,7 +3010,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
                 new long[] {35});
     }
 
-    public void UNtestSubqueryWithExceptions() throws Exception
+    public void testSubqueryWithExceptions() throws Exception
     {
         Client client = getClient();
         //                               id,wage,dept,tm
@@ -3034,7 +3031,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         verifyStmtFails(client, "select (select max(30 / wage) from r1) from r1;", expectedMsg);
     }
 
-    public void UNtestSubqueriesWithArithmetic() throws Exception {
+    public void testSubqueriesWithArithmetic() throws Exception {
         Client client = getClient();
 
         //                               id,wage,dept,tm
@@ -3062,7 +3059,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
                 new long[] {200, 300});
     }
 
-    public void UNtestExistsSimplification() throws Exception
+    public void testExistsSimplification() throws Exception
     {
         Client client = getClient();
         VoltTable vt;
@@ -3237,7 +3234,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void UNtestAmbiguousColumns() throws Exception {
+    public void testAmbiguousColumns() throws Exception {
         Client client = getClient();
         Object [][] R1Contents = {
                 { 101, 100, 10, "2013-07-18 02:00:00.123457" },
@@ -3265,7 +3262,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         validateTableOfLongs(client, sql, expected);
     }
 
-    public void UNtestEng8394SubqueryWithUnionAndCorrelation() throws Exception {
+    public void testEng8394SubqueryWithUnionAndCorrelation() throws Exception {
         Client client = getClient();
 
         Object[][] paramsArray = {
@@ -3420,17 +3417,20 @@ public class TestSubQueriesSuite extends RegressionSuite {
         //VoltTable vt;
         String sql;
 
-        for (String tb : new String[] { /* "R1",*/ "P1" }) {
+        for (String tb : new String[] { "R1", "P1" }) {
 
         //                                  id,wage,dept,tm
         client.callProcedure(tb + ".insert", 1,  5, 1, "2013-06-18 02:00:00.123457");
         client.callProcedure(tb + ".insert", 2, 10, 1, "2013-07-18 10:40:01.123457");
         client.callProcedure(tb + ".insert", 3, 10, 2, "2013-08-18 02:00:00.123457");
 
-        //sql =   "select (T1.DEPT+1)/2 C0, AVG(WAGE) " +
+        // The simplest case that repros a lingering NPE bug found just before
+        // release of universal support for subqueries on replicated tables
+        // involved grouping by a scalar subquery and specifically calculating
+        // and average on a partitioned parent table -- the bug was in the
+        // feature interaction with the code for considering pushing down avg
+        // calculations to the partitions.
         sql =   "select (select ID from R2 WHERE DEPT = 7) C0, AVG(WAGE) " +
-        //sql =   "select (select ID from R2 WHERE DEPT = T1.DEPT) C0, AVG(WAGE) " +
-        //sql =   "select (select SUM(WAGE) from R2 WHERE DEPT = T1.DEPT) C0, AVG(WAGE) " +
                 "from " + tb + " T1 " +
                 "group by C0;";
         validateTableOfLongs(client, sql, new long[][] {{Long.MIN_VALUE, 8}});

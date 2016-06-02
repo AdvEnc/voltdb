@@ -604,8 +604,9 @@ public class ParsedSelectStmt extends AbstractParsedStmt {
      * @param tveList
      */
     private void findAllTVEs(AbstractExpression expr, List<TupleValueExpression> tveList) {
-        if (!isNewtoColumnList(m_aggResultColumns, expr))
+        if (!isNewtoColumnList(m_aggResultColumns, expr)) {
             return;
+        }
         if (expr instanceof TupleValueExpression) {
             tveList.add((TupleValueExpression) expr.clone());
             return;
@@ -1947,67 +1948,77 @@ public class ParsedSelectStmt extends AbstractParsedStmt {
     @Override
     public Set<AbstractExpression> findAllSubexpressionsOfClass(Class< ? extends AbstractExpression> aeClass) {
         Set<AbstractExpression> exprs = super.findAllSubexpressionsOfClass(aeClass);
+
         if (m_having != null) {
-            Collection<AbstractExpression> found = m_having.findAllSubexpressionsOfClass(aeClass);
+            Collection<AbstractExpression> found =
+                    m_having.findAllSubexpressionsOfClass(aeClass);
             if (! found.isEmpty()) {
                 exprs.addAll(found);
             }
         }
-        if (m_groupByColumns != null) {
-            for (ParsedColInfo groupByCol : m_groupByColumns) {
-                AbstractExpression groupByExpr = groupByCol.expression;
-                if (groupByExpr == null) {
-                    continue;
-                }
-                Collection<AbstractExpression> found = groupByExpr.findAllSubexpressionsOfClass(aeClass);
-                if (found.isEmpty()) {
-                    continue;
-                }
-                exprs.addAll(found);
-            }
-        }
+        addAllSubexpressionsOfClassFromColList(exprs, aeClass, m_groupByColumns);
         if (m_projectSchema != null) {
-            for (SchemaColumn col : m_projectSchema.getColumns()) {
-                AbstractExpression colExpr = col.getExpression();
-                if (colExpr == null) {
-                    continue;
-                }
-                Collection<AbstractExpression> found = colExpr.findAllSubexpressionsOfClass(aeClass);
-                if (found.isEmpty()) {
-                    continue;
-                }
-                exprs.addAll(found);
-            }
+            addAllSubexpressionsOfClassFromNodeSchema(exprs, aeClass, m_projectSchema);
         }
+        // m_having, m_groupByExpressions, m_projectSchema
+        // may contain the aggregation or group by expression that have been
+        // replaced with TVEs already.
+        // So look for the original expression in m_aggResultColumns.
+        addAllSubexpressionsOfClassFromColList(exprs, aeClass, m_aggResultColumns);
 
         if (m_avgPushdownHaving != null &&
                 m_avgPushdownHaving != m_having) {
-            exprs.addAll(m_avgPushdownHaving.findAllSubexpressionsOfClass(aeClass));
-        }
-
-        if (m_avgPushdownProjectSchema != null && m_avgPushdownProjectSchema != m_projectSchema) {
-            for (SchemaColumn col : m_avgPushdownProjectSchema.getColumns()) {
-                AbstractExpression colExpr = col.getExpression();
-                if (colExpr == null) {
-                    continue;
-                }
-                Collection<AbstractExpression> found = colExpr.findAllSubexpressionsOfClass(aeClass);
-                if (found.isEmpty()) {
-                    continue;
-                }
+            Collection<AbstractExpression> found =
+                    m_avgPushdownHaving.findAllSubexpressionsOfClass(aeClass);
+            if (! found.isEmpty()) {
                 exprs.addAll(found);
             }
         }
-
-        // m_having, m_groupByExpressions, m_projectSchema may contain the aggregation or group by expression that have
-        // been replaced with TVEs already. So check out the repository of the original expression in m_aggResultColumns.
-        for (ParsedColInfo col: m_aggResultColumns) {
-            if (col.expression == null) {
-                continue;
-            }
-            exprs.addAll(col.expression.findAllSubexpressionsOfClass(aeClass));
+        if (m_avgPushdownGroupByColumns != null && m_avgPushdownGroupByColumns != m_groupByColumns) {
+            addAllSubexpressionsOfClassFromColList(exprs, aeClass, m_avgPushdownGroupByColumns);
+        }
+        if (m_avgPushdownProjectSchema != null && m_avgPushdownProjectSchema != m_projectSchema) {
+            addAllSubexpressionsOfClassFromNodeSchema(exprs, aeClass, m_avgPushdownProjectSchema);
+        }
+        // m_avgPushdownHaving, m_avgPushdownGroupByColumns, m_avgPushdownProjectSchema
+        // may contain the aggregation or group by expression that have been
+        // replaced with TVEs already.
+        // So look for the original expression in m_avgPushdownAggResultColumns.
+        if (m_avgPushdownAggResultColumns != null && m_avgPushdownAggResultColumns != m_aggResultColumns) {
+            addAllSubexpressionsOfClassFromColList(exprs, aeClass, m_avgPushdownAggResultColumns);
         }
         return exprs;
+
+    }
+
+    private static void addAllSubexpressionsOfClassFromColList(Set<AbstractExpression> exprs,
+            Class<? extends AbstractExpression> aeClass, List<ParsedColInfo> colList) {
+        for (ParsedColInfo groupByCol : colList) {
+            AbstractExpression groupByExpr = groupByCol.expression;
+            if (groupByExpr == null) {
+                continue;
+            }
+            Collection<AbstractExpression> found = groupByExpr.findAllSubexpressionsOfClass(aeClass);
+            if (found.isEmpty()) {
+                continue;
+            }
+            exprs.addAll(found);
+        }
+    }
+
+    private static void addAllSubexpressionsOfClassFromNodeSchema(Set<AbstractExpression> exprs,
+            Class<? extends AbstractExpression> aeClass, NodeSchema colList) {
+        for (SchemaColumn col : colList.getColumns()) {
+            AbstractExpression colExpr = col.getExpression();
+            if (colExpr == null) {
+                continue;
+            }
+            Collection<AbstractExpression> found = colExpr.findAllSubexpressionsOfClass(aeClass);
+            if (found.isEmpty()) {
+                continue;
+            }
+            exprs.addAll(found);
+        }
     }
 
     @Override

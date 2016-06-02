@@ -136,14 +136,20 @@ public abstract class AbstractPlanNode implements JSONString, Comparable<Abstrac
         for (AbstractExpression expr : subqueries) {
             assert(expr instanceof AbstractSubqueryExpression);
             AbstractSubqueryExpression subquery = (AbstractSubqueryExpression) expr;
-            if (subquery instanceof SelectSubqueryExpression) {
-                CompiledPlan subqueryPlan = ((SelectSubqueryExpression)subquery)
-                        .getSubqueryScan().getBestCostPlan();
-                /*/REDO to debug*/if (subqueryPlan == null) {
-                /*/REDO to debug*/    findAllSubquerySubexpressions();
-                /*/REDO to debug*/}
-            }
-
+            // overrideSubqueryNodeIds(newId) will get an NPE if the subquery
+            // has not been planned, presumably the effect of hitting a bug
+            // earlier in the planner. If that happens again, it MAY be useful
+            // to preempt those cases here and single-step through a replay of
+            // findAllSubquerySubexpressions. Determining where in the parent
+            // plan this subquery expression was found MAY provide a clue
+            // as to why the subquery was not planned. It has helped before.
+            //REDO to debug*/ if (subquery instanceof SelectSubqueryExpression) {
+            //REDO to debug*/     CompiledPlan subqueryPlan = ((SelectSubqueryExpression)subquery)
+            //REDO to debug*/             .getSubqueryScan().getBestCostPlan();
+            //REDO to debug*/     if (subqueryPlan == null) {
+            //REDO to debug*/         findAllSubquerySubexpressions();
+            //REDO to debug*/     }
+            //REDO to debug*/ }
             newId = subquery.overrideSubqueryNodeIds(newId);
         }
         return newId;
