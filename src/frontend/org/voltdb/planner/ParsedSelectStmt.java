@@ -634,9 +634,9 @@ public class ParsedSelectStmt extends AbstractParsedStmt {
                 itr.remove();
 
                 AbstractExpression left = new AggregateExpression(ExpressionType.AGGREGATE_SUM);
-                left.setLeft(aggExpr.getLeft());
+                left.setLeft((AbstractExpression)aggExpr.getLeft().clone());
                 AbstractExpression right = new AggregateExpression(ExpressionType.AGGREGATE_COUNT);
-                right.setLeft(aggExpr.getLeft());
+                right.setLeft((AbstractExpression)aggExpr.getLeft().clone());
 
                 optimalAvgAggs.add(left);
                 optimalAvgAggs.add(right);
