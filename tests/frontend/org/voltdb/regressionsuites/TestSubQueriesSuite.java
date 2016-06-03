@@ -80,8 +80,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * Simple sub-query
      * @throws Exception
      */
-    public void testSimpleFromClause() throws Exception
-    {
+    public void testSimpleFromClause() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -140,8 +139,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * SELECT FROM SELECT FROM GROUP BY
      * @throws Exception
      */
-    public void testFromClauseAggregation() throws Exception
-    {
+    public void testFromClauseAggregation() throws Exception {
         Client client = getClient();
         loadData(true);
 
@@ -217,8 +215,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * Join two sub queries
      * @throws Exception
      */
-    public void testJoinsOfSubselects() throws Exception
-    {
+    public void testJoinsOfSubselects() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -272,8 +269,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void testFromReplicated() throws Exception
-    {
+    public void testFromReplicated() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -304,8 +300,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
 
     // This got a wrong answer when partitioned GROUP in subquery is joined with replicated parent table
-    public void testENG6276() throws Exception
-    {
+    public void testENG6276() throws Exception {
         Client client = getClient();
         String sql;
 
@@ -348,8 +343,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * Simple sub-query expression
      * @throws Exception
      */
-    public void testInExistsSimple() throws Exception
-    {
+    public void testInExistsSimple() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -421,8 +415,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void testLhsScalarInSubquery() throws Exception
-    {
+    public void testLhsScalarInSubquery() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -478,8 +471,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * Join two sub queries
      * @throws Exception
      */
-    public void testJoinsOfInExists() throws Exception
-    {
+    public void testJoinsOfInExists() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -521,8 +513,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * SELECT WHERE IN/EXISTS SELECT GROUP BY
      * @throws Exception
      */
-    public void testInExistsGroupBy() throws Exception
-    {
+    public void testInExistsGroupBy() throws Exception {
         Client client = getClient();
         loadData(true);
         VoltTable vt;
@@ -616,8 +607,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * SELECT ... HAVING ... SELECT
      * @throws Exception
      */
-    public void testHavingSubselect() throws Exception
-    {
+    public void testHavingSubselect() throws Exception {
         Client client = getClient();
         loadData(true);
         String sql;
@@ -654,8 +644,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * SELECT ... WHERE ... SELECT UNION SELECT
      * @throws Exception
      */
-    public void testUnions() throws Exception
-    {
+    public void testUnions() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -691,8 +680,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void testRowInOrOpAnyNonNull() throws Exception
-    {
+    public void testRowInOrOpAnyNonNull() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -900,8 +888,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *
      * @throws Exception
      */
-    public void testRowEqualityIsNull() throws Exception
-    {
+    public void testRowEqualityIsNull() throws Exception {
         Client client = getClient();
         //                                 id, wage, dept, tm
         client.callProcedure("R1.insert", 100, 1000, 2, "2013-07-18 02:00:00.123457");
@@ -979,8 +966,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *       and there are "near misses" involving NULLs
      * @throws Exception
      */
-    public void testRowInOrOpAnyWithInnerNull() throws Exception
-    {
+    public void testRowInOrOpAnyWithInnerNull() throws Exception {
         Client client = getClient();
         //                                 id, wage, dept, tm
         client.callProcedure("R1.insert",  10,  100, 1, "2013-07-18 02:00:00.123457");
@@ -1228,8 +1214,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *
      * @throws Exception
      */
-    public void testRowNotOrIsNullInOrOpAnyWithInnerNull() throws Exception
-    {
+    public void testRowNotOrIsNullInOrOpAnyWithInnerNull() throws Exception {
         Client client = getClient();
         //                                 id, wage, dept, tm
         client.callProcedure("R1.insert",  10,  100, 1, "2013-07-18 02:00:00.123457");
@@ -1459,8 +1444,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *
      * @throws Exception
      */
-    public void testRowOpAllWithInnerNull() throws Exception
-    {
+    public void testRowOpAllWithInnerNull() throws Exception {
         Client client = getClient();
         //                                 id, wage, dept, tm
         client.callProcedure("R1.insert",  10,  100, 1, "2013-07-18 02:00:00.123457");
@@ -1805,8 +1789,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     *
      * @throws Exception
      */
-    public void testRowOpAllNoNull() throws Exception
-    {
+    public void testRowOpAllNoNull() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -1960,8 +1943,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
 
 
-    public void testInExistsOrOpAnyWithInnerNull() throws Exception
-    {
+    public void testInExistsOrOpAnyWithInnerNull() throws Exception {
         Client client = getClient();
         //                                 id, wage, dept, tm
         client.callProcedure("R1.insert", 100, 1000, 2, "2013-07-18 02:00:00.123457");
@@ -2043,8 +2025,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * to prevent IN-to-EXISTS optimization
      * @throws Exception
      */
-    public void testOuterNullInOpAny() throws Exception
-    {
+    public void testOuterNullInOpAny() throws Exception {
         Client client = getClient();
         //                                 id, wage, dept, tm
         client.callProcedure("R1.insert", 100, 1000, 2, "2013-07-18 02:00:00.123457");
@@ -2178,8 +2159,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      *
      * @throws Exception
      */
-    public void testOpAllWithInnerNull() throws Exception
-    {
+    public void testOpAllWithInnerNull() throws Exception {
         Client client = getClient();
         //                                 id, wage, dept, tm
         client.callProcedure("R1.insert", 100, 1000, 2, "2013-07-18 02:00:00.123457");
@@ -2251,8 +2231,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
      * If outer_expr is NULL and inner_expr produces any row => NULL
      * @throws Exception
      */
-    public void testOpAllWithOuterNull() throws Exception
-    {
+    public void testOpAllWithOuterNull() throws Exception {
         Client client = getClient();
         //                                 id, wage, dept, tm
         client.callProcedure("R1.insert", 100, 1000, 2, "2013-07-18 02:00:00.123457");
@@ -2305,8 +2284,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
 
     // Test subqueries on partitioned table cases
-    public void testSubSelects_from_partitioned() throws Exception
-    {
+    public void testSubSelects_from_partitioned() throws Exception {
         Client client = getClient();
         loadData(false);
         String sql;
@@ -2377,14 +2355,13 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
 
     // Test scalar subqueries
-    public void testSelectScalar() throws Exception
-    {
+    public void testSelectScalar() throws Exception {
         Client client = getClient();
         loadData(true);
 
         for (String tb : new String[] { "R1", "P1"} ) {
-            subtestSelectScalarwithParentTable(client, tb);
-            subTestGroupByScalarSubqueryWithParentTable(client, tb);
+            subtestSelectScalarwithParentTable(tb, client);
+            subTestGroupByScalarSubqueryWithParentTable(tb, client);
         }
 
         // ENG-8145
@@ -2395,9 +2372,8 @@ public class TestSubQueriesSuite extends RegressionSuite {
         subTestScalarSubqueryWithNonIntegerType(client);
     }
 
-    private void subtestSelectScalarwithParentTable(Client client, String tb)
-            throws Exception
-    {
+    private void subtestSelectScalarwithParentTable(String tb, Client client)
+            throws Exception {
         VoltTable vt;
         String sql;
         // Non-correlated
@@ -2478,7 +2454,8 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    private void subTestGroupByScalarSubqueryWithParentTable(Client client, String tb) throws Exception {
+    private void subTestGroupByScalarSubqueryWithParentTable(String tb, Client client)
+            throws Exception {
         String sql;
 
         // group by scalar value expression
@@ -2565,7 +2542,8 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    private void subTestScalarSubqueryWithParentOrderByOrGroupBy(Client client) throws Exception {
+    private void subTestScalarSubqueryWithParentOrderByOrGroupBy(Client client)
+            throws Exception {
         String sql;
         int len = 100;
 
@@ -2671,7 +2649,8 @@ public class TestSubQueriesSuite extends RegressionSuite {
         assertFalse(vt.advanceRow());
     }
 
-    private void subTestScalarSubqueryWithNonIntegerType(Client client) throws Exception {
+    private void subTestScalarSubqueryWithNonIntegerType(Client client)
+            throws Exception {
 
         client.callProcedure("@AdHoc", "truncate table R4");
         client.callProcedure("R4.insert", 1, "foo1", -1, 1.1);
@@ -2701,18 +2680,17 @@ public class TestSubQueriesSuite extends RegressionSuite {
         assertEquals(2, vt.getLong(0)); assertEquals("foo1", vt.getString(1));
     }
 
-    public void testWhereScalarSubSelects() throws Exception
-    {
+    public void testWhereScalarSubSelects() throws Exception {
         Client client = getClient();
         loadData(false);
 
         for (String tb : new String[] { "R1", "P1"} ) {
-            subtestWhereScalarForTable(client, tb);
+            subtestWhereScalarForParentTable(tb, client);
         }
     }
 
-    private void subtestWhereScalarForTable(Client client, String tb) throws Exception
-    {
+    private void subtestWhereScalarForParentTable(String tb, Client client)
+            throws Exception {
         VoltTable vt;
         String sql;
 
@@ -2829,7 +2807,8 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    private void subtestSingleColumnOpAllForParent(String tb, Client client) throws Exception {
+    private void subtestSingleColumnOpAllForParent(String tb, Client client)
+            throws Exception {
         String sql;
         VoltTable vt;
         // Subquery with limit/offset parameter
@@ -2903,14 +2882,14 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    public void subtestWhereRowSubSelectsForParent(String tb, Client client) throws Exception {
+    public void subtestWhereRowSubSelectsForParent(String tb, Client client)
+            throws Exception {
         String sql;
 
         //                               id,wage,dept,tm
         client.callProcedure(tb + ".insert", 1,  5, 1, "2013-06-18 02:00:00.123457");
         client.callProcedure(tb + ".insert", 2, 10, 1, "2013-07-18 10:40:01.123457");
         client.callProcedure(tb + ".insert", 3, 10, 2, "2013-08-18 02:00:00.123457");
-
 
         // T1 2, 10, 1 = R2 4, 10, 1
         sql =   "select T1.ID from " + tb + " T1 " +
@@ -2996,8 +2975,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         validateTableOfLongs(client, sql, new long[][] {{1}, {2}});
     }
 
-    public void testRepeatedQueriesDifferentData() throws Exception
-    {
+    public void testRepeatedQueriesDifferentData() throws Exception {
         Client client = getClient();
         //                               id,wage,dept,tm
         client.callProcedure("R1.insert", 1,  5, 1, "2013-06-18 02:00:00.123457");
@@ -3016,8 +2994,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
                 new long[] {35});
     }
 
-    public void testSubqueryWithExceptions() throws Exception
-    {
+    public void testSubqueryWithExceptions() throws Exception {
         Client client = getClient();
         //                               id,wage,dept,tm
         client.callProcedure("R1.insert", 1,  5, 1, "2013-06-18 02:00:00.123457");
@@ -3178,7 +3155,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
     }
 
     private void testExistsSimplificationWithMoreDataForParent(String tb, Client client)
-    throws Exception {
+            throws Exception {
         VoltTable vt;
         String sql;
         // EXISTS(SELECT ... OFFSET ?)
@@ -3452,8 +3429,7 @@ public class TestSubQueriesSuite extends RegressionSuite {
         }
     }
 
-    static public junit.framework.Test suite()
-    {
+    static public junit.framework.Test suite() {
         VoltServerConfig config = null;
         MultiConfigSuiteBuilder builder = new MultiConfigSuiteBuilder(TestSubQueriesSuite.class);
         VoltProjectBuilder project = new VoltProjectBuilder();
