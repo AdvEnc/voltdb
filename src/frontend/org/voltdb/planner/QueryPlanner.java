@@ -300,7 +300,7 @@ public class QueryPlanner {
         }
         catch (StackOverflowError error) {
             String msg = "Encountered stack overflow error. " +
-                         "Try reducing the number of predicate expressions in the query.";
+                         "Try reducing the number of predicate expressions in the query. QP";
             throw new PlanningErrorException(msg);
         }
 
